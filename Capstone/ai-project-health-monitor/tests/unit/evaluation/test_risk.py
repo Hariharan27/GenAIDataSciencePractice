@@ -39,6 +39,7 @@ def _risk_signal(
         severity=severity,
         confidence=0.9,
         evidence=_evidence()[0],
+        evidence_quote=_evidence()[0].content,
         rationale="Payment API integration is blocked.",
     )
 

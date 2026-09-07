@@ -36,6 +36,7 @@ def build_signal(
         severity=RiskSeverity.HIGH,
         confidence=0.9,
         evidence=evidence,
+        evidence_quote=evidence.content,
         rationale=f"Rationale for {risk_type.value}",
     )
 

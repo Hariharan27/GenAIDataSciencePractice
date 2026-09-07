@@ -47,6 +47,10 @@ class TogetherLLMClient(LLMClient):
         response = self._client.chat.completions.create(
             **request,
         )
+        
+        print("\n========== TOGETHER RESPONSE ==========")
+        print(response)
+        print("========================================\n")
 
         choice = response.choices[0]
         message = choice.message

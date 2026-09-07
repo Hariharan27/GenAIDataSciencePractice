@@ -70,6 +70,7 @@ def test_project_health_graph_executes_end_to_end() -> None:
                 tzinfo=UTC,
             ),
         ),
+        evidence_quote="Payment API integration is blocked.",
         rationale="Payment API integration is blocked.",
     )
 

@@ -52,6 +52,7 @@ def test_analyze_risks_node_extracts_evidence_and_risks() -> None:
                 tzinfo=UTC,
             ),
         ),
+        evidence_quote="Payment API integration is blocked.",
         rationale="Payment API integration is blocked.",
     )
 

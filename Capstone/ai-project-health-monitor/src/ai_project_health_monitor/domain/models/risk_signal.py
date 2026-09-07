@@ -27,16 +27,12 @@ class RiskSeverity(StrEnum):
 
 
 class RiskSignal(BaseModel):
-    """Evidence-backed risk detected from project information."""
-
     signal_id: str = Field(min_length=1)
     project_id: str = Field(min_length=1)
     event_id: str = Field(min_length=1)
-
     risk_type: RiskType
     severity: RiskSeverity
-
     confidence: float = Field(ge=0.0, le=1.0)
-
     evidence: Evidence
+    evidence_quote: str = Field(min_length=1)
     rationale: str = Field(min_length=1)

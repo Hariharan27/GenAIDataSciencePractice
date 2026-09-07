@@ -38,6 +38,7 @@ def make_signal(
         severity=severity,
         confidence=confidence,
         evidence=evidence,
+        evidence_quote=evidence.content,
         rationale="Synthetic evaluation risk.",
     )
 

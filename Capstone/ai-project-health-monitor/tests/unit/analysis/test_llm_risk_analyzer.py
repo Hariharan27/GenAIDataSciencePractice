@@ -56,6 +56,7 @@ def test_analyze_extracts_valid_risk_signal(
             "severity": "high",
             "confidence": 0.95,
             "evidence_source_id": "EVT-JIRA-001",
+            "evidence_quote": "Payment API integration is blocked because external API credentials are missing.",
             "rationale": "The payment API integration is blocked by missing credentials."
         }
     ]
@@ -156,6 +157,7 @@ def test_analyze_rejects_unknown_evidence_reference(
             "severity": "high",
             "confidence": 0.95,
             "evidence_source_id": "EVT-UNKNOWN",
+            "evidence_quote": "The project is blocked.",
             "rationale": "The project is blocked."
         }
     ]
@@ -276,4 +278,154 @@ def test_build_prompt_allows_explicit_downstream_risk() -> None:
     )
 
     assert "downstream risk is valid" in prompt
+    assert "explicitly states its impact or consequence" in prompt
     assert "affecting the planned release date" in prompt
+    assert "Do NOT use DELIVERY as a synonym for DELAY." in prompt
+
+def test_prompt_lists_valid_evidence_source_ids() -> None:
+    evidence = [
+        Evidence(
+            event_id="EVT-001",
+            source_type=SourceType.JIRA,
+            source_id="JIRA-001",
+            content="Payment API integration is blocked.",
+            occurred_at=datetime(2026, 9, 1, tzinfo=UTC),
+        ),
+        Evidence(
+            event_id="EVT-002",
+            source_type=SourceType.EMAIL,
+            source_id="EMAIL-001",
+            content="The release date is affected.",
+            occurred_at=datetime(2026, 9, 1, tzinfo=UTC),
+        ),
+    ]
+
+    prompt = LLMRiskAnalyzer._build_prompt(
+        project_id="PROJ-001",
+        query="What risks affect the payment integration?",
+        evidence=evidence,
+    )
+
+    assert "VALID EVIDENCE SOURCE IDS" in prompt
+    assert "- JIRA-001" in prompt
+    assert "- EMAIL-001" in prompt
+
+
+def test_prompt_distinguishes_delay_from_delivery() -> None:
+    evidence = [
+        Evidence(
+            event_id="EVT-001",
+            source_type=SourceType.JIRA,
+            source_id="JIRA-001",
+            content="Backend development is three days behind schedule.",
+            occurred_at=datetime(2026, 9, 1, tzinfo=UTC),
+        )
+    ]
+
+    prompt = LLMRiskAnalyzer._build_prompt(
+        project_id="PROJ-001",
+        query="What are the delivery risks?",
+        evidence=evidence,
+    )
+
+    assert "Do NOT use DELIVERY as a synonym for DELAY." in prompt
+    assert "Report DELAY only when the evidence explicitly states" in prompt
+
+
+def test_parse_response_rejects_unknown_evidence_source_id() -> None:
+    evidence = [
+        Evidence(
+            event_id="EVT-001",
+            source_type=SourceType.JIRA,
+            source_id="JIRA-001",
+            content="Payment API integration is blocked.",
+            occurred_at=datetime(2026, 9, 1, tzinfo=UTC),
+        )
+    ]
+
+    response = """
+    [
+        {
+            "risk_type": "blocker",
+            "severity": "high",
+            "confidence": 0.95,
+            "evidence_source_id": "HALLUCINATED-001",
+            "evidence_quote": "Unsupported risk.",
+            "rationale": "Unsupported risk."
+        }
+    ]
+    """
+
+    with pytest.raises(
+        ValueError,
+        match="LLM referenced evidence that was not provided",
+    ):
+        LLMRiskAnalyzer._parse_response(
+            project_id="PROJ-001",
+            evidence=evidence,
+            response=response,
+        )
+
+
+def test_parse_response_accepts_empty_array() -> None:
+    signals = LLMRiskAnalyzer._parse_response(
+        project_id="PROJ-002",
+        evidence=[],
+        response="[]",
+    )
+
+    assert signals == []
+
+def test_build_prompt_requires_exact_evidence_source_id() -> None:
+    analyzer = LLMRiskAnalyzer(Mock(spec=LLMClient))
+
+    evidence = Evidence(
+        event_id="EVT-001",
+        source_type=SourceType.JIRA,
+        source_id="EVT-JIRA-001",
+        content="Payment API integration is blocked.",
+        occurred_at=datetime(
+            2026,
+            9,
+            1,
+            tzinfo=UTC,
+        ),
+    )
+
+    prompt = analyzer._build_prompt(
+        project_id="PROJ-001",
+        query="What risks are affecting the payment API integration?",
+        evidence=[evidence],
+    )
+
+    assert "VALID EVIDENCE SOURCE IDS" in prompt
+    assert "- EVT-JIRA-001" in prompt
+    assert "copied EXACTLY" in prompt
+    assert "NEVER invent, modify, abbreviate, or guess" in prompt
+
+
+def test_build_prompt_requires_empty_array_when_no_supported_risk() -> None:
+    analyzer = LLMRiskAnalyzer(Mock(spec=LLMClient))
+
+    evidence = Evidence(
+        event_id="EVT-001",
+        source_type=SourceType.JIRA,
+        source_id="EVT-JIRA-001",
+        content="Reporting module completed successfully. Release is on track.",
+        occurred_at=datetime(
+            2026,
+            9,
+            1,
+            tzinfo=UTC,
+        ),
+    )
+
+    prompt = analyzer._build_prompt(
+        project_id="PROJ-002",
+        query="What risks are affecting the project?",
+        evidence=[evidence],
+    )
+
+    assert "If no provided evidence supports a relevant risk, return []" in prompt
+    assert "Positive project updates must not be converted into risks." in prompt
+    assert "Positive evidence does not constitute a risk." in prompt

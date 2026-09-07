@@ -52,6 +52,7 @@ def make_risk_signal(
         severity=severity,
         confidence=confidence,
         evidence=evidence,
+        evidence_quote=evidence.content,
         rationale="Risk is supported by project evidence.",
     )
 

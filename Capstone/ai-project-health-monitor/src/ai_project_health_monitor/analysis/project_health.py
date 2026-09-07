@@ -6,7 +6,7 @@ from ai_project_health_monitor.rag.models.retrieval import RetrievalResult
 
 
 class ProjectHealthService:
-    """Coordinate evidence retrieval, risk analysis, and health scoring."""
+    """Coordinate evidence conversion, risk analysis, and health scoring."""
 
     def __init__(
         self,
@@ -19,11 +19,15 @@ class ProjectHealthService:
     def analyze(
         self,
         project_id: str,
+        query: str,
         retrieval_results: list[RetrievalResult],
     ) -> HealthScore:
-        """Analyze retrieved project evidence and calculate its health score."""
+        """Analyze project health using evidence relevant to a query."""
         if not project_id.strip():
             raise ValueError("project_id cannot be empty")
+
+        if not query.strip():
+            raise ValueError("query cannot be empty")
 
         evidence = EvidenceAdapter.from_retrieval_results(
             retrieval_results
@@ -31,6 +35,7 @@ class ProjectHealthService:
 
         risk_signals = self._risk_analyzer.analyze(
             project_id=project_id,
+            query=query,
             evidence=evidence,
         )
 

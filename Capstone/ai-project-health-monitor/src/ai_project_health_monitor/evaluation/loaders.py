@@ -1,6 +1,9 @@
 import json
 from pathlib import Path
 
+from ai_project_health_monitor.evaluation.models.end_to_end import (
+    EndToEndEvaluationCase,
+)
 from ai_project_health_monitor.evaluation.models.health import (
     HealthEvaluationCase,
 )
@@ -47,5 +50,16 @@ def load_health_evaluation_cases(
 
     return [
         HealthEvaluationCase.model_validate(item)
+        for item in raw_data
+    ]
+
+def load_end_to_end_evaluation_cases(
+    path: Path,
+) -> list[EndToEndEvaluationCase]:
+    """Load end-to-end evaluation cases from a JSON file."""
+    raw_data = _load_json_array(path, "End-to-end evaluation")
+
+    return [
+        EndToEndEvaluationCase.model_validate(item)
         for item in raw_data
     ]

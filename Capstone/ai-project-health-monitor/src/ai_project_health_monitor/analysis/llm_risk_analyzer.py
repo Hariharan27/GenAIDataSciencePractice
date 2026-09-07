@@ -24,7 +24,7 @@ class RiskAnalysisResponse(BaseModel):
 
 
 class LLMRiskAnalyzer(RiskAnalyzer):
-    """Extract evidence-backed risk signals using an LLM."""
+    """Extract evidence-backed, query-relevant risk signals using an LLM."""
 
     def __init__(self, llm_client: LLMClient) -> None:
         self._llm_client = llm_client
@@ -32,16 +32,25 @@ class LLMRiskAnalyzer(RiskAnalyzer):
     def analyze(
         self,
         project_id: str,
+        query: str,
         evidence: list[Evidence],
     ) -> list[RiskSignal]:
-        """Analyze evidence and return validated risk signals."""
+        """Analyze evidence for risks directly relevant to the query."""
         if not project_id.strip():
             raise ValueError("project_id cannot be empty")
+
+        if not query.strip():
+            raise ValueError("query cannot be empty")
 
         if not evidence:
             return []
 
-        prompt = self._build_prompt(project_id, evidence)
+        prompt = self._build_prompt(
+            project_id=project_id,
+            query=query,
+            evidence=evidence,
+        )
+
         response = self._llm_client.generate(prompt)
 
         return self._parse_response(
@@ -53,6 +62,7 @@ class LLMRiskAnalyzer(RiskAnalyzer):
     def _build_prompt(
         self,
         project_id: str,
+        query: str,
         evidence: list[Evidence],
     ) -> str:
         evidence_text = "\n\n".join(
@@ -68,7 +78,23 @@ class LLMRiskAnalyzer(RiskAnalyzer):
         return f"""
 Analyze the following project evidence for project {project_id}.
 
-Identify only risks that are directly supported by the evidence.
+User query:
+{query}
+
+Your task is to identify ONLY risks that are directly relevant to the
+user query AND directly supported by the provided evidence.
+
+Important relevance rule:
+- A risk may exist somewhere in the project evidence but must NOT be
+  reported unless it directly answers the user query.
+- Do not report unrelated project risks simply because they appear in
+  the evidence.
+- Treat the user query as the scope of the analysis.
+
+For example, if the user asks about scope changes:
+- Report scope_creep when supported.
+- Do NOT report unrelated blockers, delays, dependencies, delivery risks,
+  or client sentiment unless the query specifically asks about them.
 
 Allowed risk types:
 - delay
@@ -101,7 +127,15 @@ Invalid confidence values:
 "95%"
 "very confident"
 
-If no risk is supported by the evidence, return an empty JSON array.
+Important:
+- Do not create multiple signals for the same risk type unless the
+  evidence clearly represents separate instances of that risk.
+- Prefer one logical risk signal per risk type.
+- Choose the strongest directly relevant evidence for each risk.
+- Do not infer a risk merely because another related risk exists.
+
+If no risk is directly relevant to the user query and supported by the
+evidence, return an empty JSON array.
 
 Return ONLY a valid JSON array.
 Do not include Markdown code fences.

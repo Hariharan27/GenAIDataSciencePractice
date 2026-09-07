@@ -250,3 +250,30 @@ def test_analyze_rejects_empty_query(
             query="   ",
             evidence=evidence,
         )
+def test_build_prompt_allows_explicit_downstream_risk() -> None:
+    analyzer = LLMRiskAnalyzer(Mock(spec=LLMClient))
+
+    evidence = Evidence(
+        event_id="EVT-001",
+        source_type=SourceType.JIRA,
+        source_id="EVT-001",
+        content=(
+            "Payment API integration is blocked and "
+            "this is affecting the planned release date."
+        ),
+        occurred_at=datetime(
+            2026,
+            9,
+            1,
+            tzinfo=UTC,
+        ),
+    )
+
+    prompt = analyzer._build_prompt(
+        project_id="PROJ-001",
+        query="What risks are affecting the payment API integration?",
+        evidence=[evidence],
+    )
+
+    assert "downstream risk is valid" in prompt
+    assert "affecting the planned release date" in prompt

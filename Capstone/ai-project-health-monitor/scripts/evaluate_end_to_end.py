@@ -8,6 +8,7 @@ from ai_project_health_monitor.analysis.deterministic_health_scorer import (
 from ai_project_health_monitor.analysis.evidence_adapter import EvidenceAdapter
 from ai_project_health_monitor.analysis.llm_factory import LLMClientFactory
 from ai_project_health_monitor.analysis.llm_risk_analyzer import LLMRiskAnalyzer
+from ai_project_health_monitor.analysis.risk_consolidator import RiskConsolidator
 from ai_project_health_monitor.core.config import get_settings
 from ai_project_health_monitor.evaluation.end_to_end import EndToEndEvaluator
 from ai_project_health_monitor.evaluation.loaders import (
@@ -87,6 +88,8 @@ def main() -> None:
     risk_analyzer = LLMRiskAnalyzer(
         llm_client=llm_client,
     )
+
+    risk_consolidator = RiskConsolidator()
 
     health_scorer = DeterministicHealthScorer()
 
@@ -174,11 +177,35 @@ def main() -> None:
                 f"    rationale={signal.rationale}"
             )
 
-        risk_signals_by_case[case.case_id] = risk_signals
+        risk_groups = risk_consolidator.consolidate(
+            risk_signals
+        )
+
+        primary_risks = risk_consolidator.primary_risks(
+            risk_groups
+        )
+
+        print("Consolidated risk groups:")
+
+        for group in risk_groups:
+            print(
+                f"  - primary={group.primary_risk.risk_type.value} | "
+                f"contributing="
+                f"{[signal.risk_type.value for signal in group.contributing_risks]} | "
+                f"impact="
+                f"{[signal.risk_type.value for signal in group.impact_risks]}"
+            )
+
+        risk_signals_by_case[case.case_id] = primary_risks
 
         print(
             "Detected risks   : "
             f"{[signal.risk_type.value for signal in risk_signals]}"
+        )
+
+        print(
+            "Scored risks     : "
+            f"{[signal.risk_type.value for signal in primary_risks]}"
         )
 
     evaluation_run = evaluator.evaluate(

@@ -64,6 +64,7 @@ def test_analyze_extracts_valid_risk_signal(
             "severity": "high",
             "confidence": 0.95,
             "evidence_source_id": "EVT-JIRA-001",
+            "evidence_quote": "Payment API integration is blocked because external API credentials are missing.",
             "rationale": "The payment API integration is blocked by missing credentials."
         }
     ]
@@ -164,6 +165,7 @@ def test_analyze_rejects_unknown_evidence_reference(
             "severity": "high",
             "confidence": 0.95,
             "evidence_source_id": "EVT-UNKNOWN",
+            "evidence_quote": "The project is blocked.",
             "rationale": "The project is blocked."
         }
     ]
@@ -285,6 +287,7 @@ def test_analyze_scores_only_primary_risk_after_consolidation() -> None:
             severity=RiskSeverity.HIGH,
             confidence=0.9,
             evidence=evidence,
+            evidence_quote=evidence.content,
             rationale="Payment API is blocked.",
         )
 
@@ -296,6 +299,7 @@ def test_analyze_scores_only_primary_risk_after_consolidation() -> None:
             severity=RiskSeverity.HIGH,
             confidence=0.9,
             evidence=evidence,
+            evidence_quote=evidence.content,
             rationale="External credentials are missing.",
         )
 
@@ -307,6 +311,7 @@ def test_analyze_scores_only_primary_risk_after_consolidation() -> None:
             severity=RiskSeverity.HIGH,
             confidence=0.9,
             evidence=evidence,
+            evidence_quote=evidence.content,
             rationale="Release may be delayed.",
         )
 

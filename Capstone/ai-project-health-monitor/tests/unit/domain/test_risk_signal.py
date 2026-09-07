@@ -26,6 +26,7 @@ def test_risk_signal_creation() -> None:
         severity=RiskSeverity.HIGH,
         confidence=0.91,
         evidence=evidence,
+        evidence_quote=evidence.content,
         rationale="The dependency is preventing completion of the integration task.",
     )
 
@@ -57,6 +58,7 @@ def test_confidence_must_be_between_zero_and_one(
             severity=RiskSeverity.MEDIUM,
             confidence=confidence,
             evidence=evidence,
+            evidence_quote=evidence.content,
             rationale="The planned delivery date has been missed.",
         )
 
@@ -79,6 +81,7 @@ def test_risk_signal_rejects_unknown_risk_type() -> None:
             severity=RiskSeverity.LOW,
             confidence=0.5,
             evidence=evidence,
+            evidence_quote=evidence.content,
             rationale="The source contains an unclear warning.",
         )
 
@@ -93,5 +96,6 @@ def test_risk_signal_rejects_invalid_evidence() -> None:
             severity=RiskSeverity.HIGH,
             confidence=0.8,
             evidence="",
+            evidence_quote="",
             rationale="The delivery appears to be delayed.",
         )

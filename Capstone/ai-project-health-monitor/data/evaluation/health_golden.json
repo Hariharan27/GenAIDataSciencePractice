@@ -1,0 +1,173 @@
+[
+  {
+    "case_id": "HEALTH-001",
+    "project_id": "PROJ-001",
+    "risks": [],
+    "expected_score": 100.0,
+    "expected_status": "healthy"
+  },
+  {
+    "case_id": "HEALTH-002",
+    "project_id": "PROJ-001",
+    "risks": [
+      {
+        "severity": "low",
+        "confidence": 1.0
+      }
+    ],
+    "expected_score": 95.0,
+    "expected_status": "healthy"
+  },
+  {
+    "case_id": "HEALTH-003",
+    "project_id": "PROJ-001",
+    "risks": [
+      {
+        "severity": "medium",
+        "confidence": 1.0
+      }
+    ],
+    "expected_score": 90.0,
+    "expected_status": "healthy"
+  },
+  {
+    "case_id": "HEALTH-004",
+    "project_id": "PROJ-001",
+    "risks": [
+      {
+        "severity": "high",
+        "confidence": 1.0
+      }
+    ],
+    "expected_score": 80.0,
+    "expected_status": "healthy"
+  },
+  {
+    "case_id": "HEALTH-005",
+    "project_id": "PROJ-001",
+    "risks": [
+      {
+        "severity": "critical",
+        "confidence": 1.0
+      }
+    ],
+    "expected_score": 65.0,
+    "expected_status": "at_risk"
+  },
+  {
+    "case_id": "HEALTH-006",
+    "project_id": "PROJ-001",
+    "risks": [
+      {
+        "severity": "critical",
+        "confidence": 1.0
+      },
+      {
+        "severity": "high",
+        "confidence": 1.0
+      }
+    ],
+    "expected_score": 45.0,
+    "expected_status": "at_risk"
+  },
+  {
+    "case_id": "HEALTH-007",
+    "project_id": "PROJ-001",
+    "risks": [
+      {
+        "severity": "high",
+        "confidence": 0.5
+      }
+    ],
+    "expected_score": 90.0,
+    "expected_status": "healthy"
+  },
+  {
+    "case_id": "HEALTH-008",
+    "project_id": "PROJ-001",
+    "risks": [
+      {
+        "severity": "critical",
+        "confidence": 1.0
+      },
+      {
+        "severity": "critical",
+        "confidence": 1.0
+      }
+    ],
+    "expected_score": 30.0,
+    "expected_status": "critical"
+  },
+  {
+    "case_id": "HEALTH-009",
+    "project_id": "PROJ-001",
+    "risks": [
+      {
+        "severity": "high",
+        "confidence": 1.0
+      },
+      {
+        "severity": "medium",
+        "confidence": 1.0
+      }
+    ],
+    "expected_score": 70.0,
+    "expected_status": "healthy"
+  },
+  {
+    "case_id": "HEALTH-010",
+    "project_id": "PROJ-001",
+    "risks": [
+      {
+        "severity": "critical",
+        "confidence": 1.0
+      },
+      {
+        "severity": "medium",
+        "confidence": 1.0
+      }
+    ],
+    "expected_score": 55.0,
+    "expected_status": "at_risk"
+  },
+  {
+    "case_id": "HEALTH-011",
+    "project_id": "PROJ-001",
+    "risks": [
+      {
+        "severity": "critical",
+        "confidence": 1.0
+      },
+      {
+        "severity": "high",
+        "confidence": 1.0
+      },
+      {
+        "severity": "medium",
+        "confidence": 1.0
+      }
+    ],
+    "expected_score": 35.0,
+    "expected_status": "critical"
+  },
+  {
+    "case_id": "HEALTH-012",
+    "project_id": "PROJ-001",
+    "risks": [
+      {
+        "severity": "low",
+        "confidence": 0.5
+      },
+      {
+        "severity": "medium",
+        "confidence": 0.5
+      },
+      {
+        "severity": "high",
+        "confidence": 0.5
+      }
+    ],
+    "expected_score": 82.5,
+    "expected_status": "healthy"
+  }
+]

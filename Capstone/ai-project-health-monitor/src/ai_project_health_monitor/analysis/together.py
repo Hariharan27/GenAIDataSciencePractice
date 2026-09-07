@@ -1,9 +1,13 @@
+from typing import Any
+
 from together import Together
 
 from ai_project_health_monitor.analysis.llm import LLMClient
 
 
 class TogetherLLMClient(LLMClient):
+    """LLM client implementation backed by Together."""
+
     def __init__(
         self,
         model: str,
@@ -18,18 +22,30 @@ class TogetherLLMClient(LLMClient):
         self._model = model
         self._client = Together(api_key=api_key)
 
-    def generate(self, prompt: str) -> str:
+    def generate(
+        self,
+        prompt: str,
+        response_format: dict[str, Any] | None = None,
+    ) -> str:
+        """Generate a response using the configured Together model."""
         if not prompt.strip():
             raise ValueError("prompt must not be empty")
 
-        response = self._client.chat.completions.create(
-            model=self._model,
-            messages=[
+        request: dict[str, Any] = {
+            "model": self._model,
+            "messages": [
                 {
                     "role": "user",
                     "content": prompt,
                 }
             ],
+        }
+
+        if response_format is not None:
+            request["response_format"] = response_format
+
+        response = self._client.chat.completions.create(
+            **request,
         )
 
         choice = response.choices[0]

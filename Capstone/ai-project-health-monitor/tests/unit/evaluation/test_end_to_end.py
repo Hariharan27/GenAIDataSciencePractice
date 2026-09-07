@@ -1,5 +1,4 @@
 from datetime import UTC, datetime
-from unittest import result
 
 import pytest
 

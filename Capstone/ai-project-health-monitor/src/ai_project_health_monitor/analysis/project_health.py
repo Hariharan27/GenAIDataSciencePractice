@@ -1,20 +1,23 @@
 from ai_project_health_monitor.analysis.evidence_adapter import EvidenceAdapter
 from ai_project_health_monitor.analysis.health_scorer import HealthScorer
 from ai_project_health_monitor.analysis.risk_analyzer import RiskAnalyzer
+from ai_project_health_monitor.analysis.risk_consolidator import RiskConsolidator
 from ai_project_health_monitor.domain.models.health_score import HealthScore
 from ai_project_health_monitor.rag.models.retrieval import RetrievalResult
 
 
 class ProjectHealthService:
-    """Coordinate evidence conversion, risk analysis, and health scoring."""
+    """Coordinate evidence conversion, risk analysis, consolidation, and scoring."""
 
     def __init__(
         self,
         risk_analyzer: RiskAnalyzer,
         health_scorer: HealthScorer,
+        risk_consolidator: RiskConsolidator,
     ) -> None:
         self._risk_analyzer = risk_analyzer
         self._health_scorer = health_scorer
+        self._risk_consolidator = risk_consolidator
 
     def analyze(
         self,
@@ -39,7 +42,15 @@ class ProjectHealthService:
             evidence=evidence,
         )
 
+        risk_groups = self._risk_consolidator.consolidate(
+            risk_signals
+        )
+
+        primary_risks = self._risk_consolidator.primary_risks(
+            risk_groups
+        )
+
         return self._health_scorer.calculate(
             project_id=project_id,
-            risk_signals=risk_signals,
+            risk_signals=primary_risks,
         )

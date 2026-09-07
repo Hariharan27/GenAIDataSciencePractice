@@ -8,6 +8,7 @@ from ai_project_health_monitor.analysis.deterministic_health_scorer import (
 from ai_project_health_monitor.analysis.llm_factory import LLMClientFactory
 from ai_project_health_monitor.analysis.llm_risk_analyzer import LLMRiskAnalyzer
 from ai_project_health_monitor.analysis.project_health import ProjectHealthService
+from ai_project_health_monitor.analysis.risk_consolidator import RiskConsolidator
 from ai_project_health_monitor.core.config import get_settings
 from ai_project_health_monitor.ingestion.connectors.synthetic_document import (
     SyntheticDocumentConnector,
@@ -96,6 +97,7 @@ def test_project_health_analysis_end_to_end() -> None:
     health_service = ProjectHealthService(
         risk_analyzer=risk_analyzer,
         health_scorer=health_scorer,
+        risk_consolidator=RiskConsolidator(),
     )
 
     health_score = health_service.analyze(

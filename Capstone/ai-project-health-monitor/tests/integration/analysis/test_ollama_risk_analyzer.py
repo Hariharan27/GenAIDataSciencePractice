@@ -36,6 +36,7 @@ def test_qwen3_extracts_risk_from_project_evidence() -> None:
 
     signals = analyzer.analyze(
         project_id="PROJ-001",
+        query="What risks are affecting the payment API integration?",
         evidence=evidence,
     )
 

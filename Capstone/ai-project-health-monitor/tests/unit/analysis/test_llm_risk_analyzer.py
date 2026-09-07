@@ -39,9 +39,15 @@ def evidence() -> list[Evidence]:
     ]
 
 
+@pytest.fixture
+def query() -> str:
+    return "What risks are affecting the payment API integration?"
+
+
 def test_analyze_extracts_valid_risk_signal(
     llm_client: Mock,
     evidence: list[Evidence],
+    query: str,
 ) -> None:
     llm_client.generate.return_value = """
     [
@@ -59,6 +65,7 @@ def test_analyze_extracts_valid_risk_signal(
 
     signals = analyzer.analyze(
         project_id="PROJ-001",
+        query=query,
         evidence=evidence,
     )
 
@@ -78,6 +85,7 @@ def test_analyze_extracts_valid_risk_signal(
 def test_analyze_returns_empty_list_when_no_risk(
     llm_client: Mock,
     evidence: list[Evidence],
+    query: str,
 ) -> None:
     llm_client.generate.return_value = "[]"
 
@@ -85,6 +93,7 @@ def test_analyze_returns_empty_list_when_no_risk(
 
     signals = analyzer.analyze(
         project_id="PROJ-001",
+        query=query,
         evidence=evidence,
     )
 
@@ -94,6 +103,7 @@ def test_analyze_returns_empty_list_when_no_risk(
 def test_analyze_rejects_invalid_json(
     llm_client: Mock,
     evidence: list[Evidence],
+    query: str,
 ) -> None:
     llm_client.generate.return_value = "This is not JSON."
 
@@ -105,6 +115,7 @@ def test_analyze_rejects_invalid_json(
     ):
         analyzer.analyze(
             project_id="PROJ-001",
+            query=query,
             evidence=evidence,
         )
 
@@ -112,6 +123,7 @@ def test_analyze_rejects_invalid_json(
 def test_analyze_rejects_non_array_response(
     llm_client: Mock,
     evidence: list[Evidence],
+    query: str,
 ) -> None:
     llm_client.generate.return_value = """
     {
@@ -127,6 +139,7 @@ def test_analyze_rejects_non_array_response(
     ):
         analyzer.analyze(
             project_id="PROJ-001",
+            query=query,
             evidence=evidence,
         )
 
@@ -134,6 +147,7 @@ def test_analyze_rejects_non_array_response(
 def test_analyze_rejects_unknown_evidence_reference(
     llm_client: Mock,
     evidence: list[Evidence],
+    query: str,
 ) -> None:
     llm_client.generate.return_value = """
     [
@@ -155,6 +169,7 @@ def test_analyze_rejects_unknown_evidence_reference(
     ):
         analyzer.analyze(
             project_id="PROJ-001",
+            query=query,
             evidence=evidence,
         )
 
@@ -162,6 +177,7 @@ def test_analyze_rejects_unknown_evidence_reference(
 def test_analyze_rejects_invalid_confidence(
     llm_client: Mock,
     evidence: list[Evidence],
+    query: str,
 ) -> None:
     llm_client.generate.return_value = """
     [
@@ -180,17 +196,20 @@ def test_analyze_rejects_invalid_confidence(
     with pytest.raises(ValueError):
         analyzer.analyze(
             project_id="PROJ-001",
+            query=query,
             evidence=evidence,
         )
 
 
 def test_analyze_returns_empty_for_empty_evidence(
     llm_client: Mock,
+    query: str,
 ) -> None:
     analyzer = LLMRiskAnalyzer(llm_client)
 
     signals = analyzer.analyze(
         project_id="PROJ-001",
+        query=query,
         evidence=[],
     )
 
@@ -201,6 +220,7 @@ def test_analyze_returns_empty_for_empty_evidence(
 def test_analyze_rejects_empty_project_id(
     llm_client: Mock,
     evidence: list[Evidence],
+    query: str,
 ) -> None:
     analyzer = LLMRiskAnalyzer(llm_client)
 
@@ -210,5 +230,23 @@ def test_analyze_rejects_empty_project_id(
     ):
         analyzer.analyze(
             project_id="   ",
+            query=query,
+            evidence=evidence,
+        )
+
+
+def test_analyze_rejects_empty_query(
+    llm_client: Mock,
+    evidence: list[Evidence],
+) -> None:
+    analyzer = LLMRiskAnalyzer(llm_client)
+
+    with pytest.raises(
+        ValueError,
+        match="query cannot be empty",
+    ):
+        analyzer.analyze(
+            project_id="PROJ-001",
+            query="   ",
             evidence=evidence,
         )

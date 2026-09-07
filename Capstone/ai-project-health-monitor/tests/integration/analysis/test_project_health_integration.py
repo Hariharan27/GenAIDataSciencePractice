@@ -5,9 +5,10 @@ from qdrant_client import QdrantClient
 from ai_project_health_monitor.analysis.deterministic_health_scorer import (
     DeterministicHealthScorer,
 )
+from ai_project_health_monitor.analysis.llm_factory import LLMClientFactory
 from ai_project_health_monitor.analysis.llm_risk_analyzer import LLMRiskAnalyzer
-from ai_project_health_monitor.analysis.ollama import OllamaLLMClient
 from ai_project_health_monitor.analysis.project_health import ProjectHealthService
+from ai_project_health_monitor.core.config import get_settings
 from ai_project_health_monitor.ingestion.connectors.synthetic_document import (
     SyntheticDocumentConnector,
 )
@@ -72,17 +73,19 @@ def test_project_health_analysis_end_to_end() -> None:
 
     assert indexed_count > 0
 
+    query = "What risks are affecting the payment API integration?"
+
     retrieval_results = retrieval_service.retrieve(
-        query="What risks are affecting the payment API integration?",
+        query=query,
         project_id=project_id,
         limit=5,
     )
 
     assert retrieval_results
 
-    llm_client = OllamaLLMClient(
-        model="qwen3:8b",
-    )
+    settings = get_settings()
+
+    llm_client = LLMClientFactory.create(settings)
 
     risk_analyzer = LLMRiskAnalyzer(
         llm_client=llm_client,
@@ -97,6 +100,7 @@ def test_project_health_analysis_end_to_end() -> None:
 
     health_score = health_service.analyze(
         project_id=project_id,
+        query=query,
         retrieval_results=retrieval_results,
     )
 

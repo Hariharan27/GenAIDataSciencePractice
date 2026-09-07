@@ -1,0 +1,66 @@
+[
+  {
+    "case_id": "E2E-001",
+    "project_id": "PROJ-001",
+    "query": "What risks are affecting the payment API integration?",
+    "expected_risk_types": [
+      "blocker",
+      "delay"
+    ],
+    "expected_status": "at_risk",
+    "min_expected_score": 40.0,
+    "max_expected_score": 85.0
+  },
+  {
+    "case_id": "E2E-002",
+    "project_id": "PROJ-001",
+    "query": "Are there any scope changes affecting the current release?",
+    "expected_risk_types": [
+      "scope_creep"
+    ],
+    "expected_status": "healthy",
+    "min_expected_score": 70.0,
+    "max_expected_score": 100.0
+  },
+  {
+    "case_id": "E2E-003",
+    "project_id": "PROJ-001",
+    "query": "What is the current client sentiment about the project?",
+    "expected_risk_types": [
+      "client_sentiment"
+    ],
+    "expected_status": "healthy",
+    "min_expected_score": 70.0,
+    "max_expected_score": 100.0
+  },
+  {
+    "case_id": "E2E-004",
+    "project_id": "PROJ-002",
+    "query": "Are there any risks affecting the reporting project?",
+    "expected_risk_types": [],
+    "expected_status": "healthy",
+    "min_expected_score": 90.0,
+    "max_expected_score": 100.0
+  },
+  {
+    "case_id": "E2E-005",
+    "project_id": "PROJ-002",
+    "query": "Is the reporting module on track for release?",
+    "expected_risk_types": [],
+    "expected_status": "healthy",
+    "min_expected_score": 90.0,
+    "max_expected_score": 100.0
+  },
+  {
+    "case_id": "E2E-006",
+    "project_id": "PROJ-001",
+    "query": "What are the major delivery risks for this project?",
+    "expected_risk_types": [
+      "blocker",
+      "delay"
+    ],
+    "expected_status": "at_risk",
+    "min_expected_score": 40.0,
+    "max_expected_score": 85.0
+  }
+]

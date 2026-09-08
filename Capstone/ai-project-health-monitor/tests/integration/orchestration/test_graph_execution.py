@@ -1,8 +1,13 @@
 from datetime import UTC, datetime
 from unittest.mock import Mock
 
-from ai_project_health_monitor.analysis.deterministic_health_scorer import DeterministicHealthScorer
+from ai_project_health_monitor.analysis.deterministic_health_scorer import (
+    DeterministicHealthScorer,
+)
 from ai_project_health_monitor.analysis.health_scorer import HealthScorer
+from ai_project_health_monitor.analysis.health_summary_generator import (
+    HealthSummaryGenerator,
+)
 from ai_project_health_monitor.analysis.llm_risk_analyzer import LLMRiskAnalyzer
 from ai_project_health_monitor.analysis.risk_consolidator import RiskConsolidator
 from ai_project_health_monitor.domain.models.evidence import Evidence
@@ -11,6 +16,9 @@ from ai_project_health_monitor.domain.models.health_score import (
     HealthStatus,
 )
 from ai_project_health_monitor.domain.models.project_event import SourceType
+from ai_project_health_monitor.domain.models.project_health_summary import (
+    ProjectHealthSummary,
+)
 from ai_project_health_monitor.domain.models.risk_group import RiskGroup
 from ai_project_health_monitor.domain.models.risk_signal import (
     RiskSeverity,
@@ -30,6 +38,7 @@ def test_project_health_graph_executes_end_to_end() -> None:
     risk_analyzer = Mock(spec=LLMRiskAnalyzer)
     risk_consolidator = Mock(spec=RiskConsolidator)
     health_scorer = Mock(spec=HealthScorer)
+    summary_generator = Mock(spec=HealthSummaryGenerator)
 
     chunk = DocumentChunk(
         chunk_id="CHUNK-001",
@@ -93,6 +102,15 @@ def test_project_health_graph_executes_end_to_end() -> None:
         rationale="Project has significant delivery risks.",
     )
 
+    summary = ProjectHealthSummary(
+        project_id="PROJ-001",
+        health_score=60.0,
+        health_status=HealthStatus.AT_RISK,
+        executive_summary="Project has significant delivery risks.",
+        top_risks=[],
+        recommended_actions=[],
+    )
+
     retrieval_service.retrieve.return_value = [
         retrieval_result,
     ]
@@ -111,11 +129,14 @@ def test_project_health_graph_executes_end_to_end() -> None:
 
     health_scorer.calculate.return_value = health_score
 
+    summary_generator.generate.return_value = summary
+
     graph = build_project_health_graph(
         retrieval_service=retrieval_service,
         risk_analyzer=risk_analyzer,
         risk_consolidator=risk_consolidator,
         health_scorer=health_scorer,
+        summary_generator=summary_generator,
     )
 
     result = graph.invoke(
@@ -150,6 +171,7 @@ def test_project_health_graph_executes_end_to_end() -> None:
     ]
 
     assert result["health_score"] == health_score
+    assert result["summary"] == summary
 
     retrieval_service.retrieve.assert_called_once_with(
         query="What risks are affecting the project?",
@@ -176,11 +198,18 @@ def test_project_health_graph_executes_end_to_end() -> None:
         risk_signals=[risk_signal],
     )
 
+    summary_generator.generate.assert_called_once_with(
+        health_score=health_score,
+        risk_signals=[risk_signal],
+    )
+
+
 def test_project_health_graph_scores_only_primary_risks() -> None:
     retrieval_service = Mock(spec=RetrievalService)
     risk_analyzer = Mock(spec=LLMRiskAnalyzer)
     risk_consolidator = RiskConsolidator()
     health_scorer = DeterministicHealthScorer()
+    summary_generator = Mock(spec=HealthSummaryGenerator)
 
     evidence = Evidence(
         event_id="EVT-001",
@@ -222,6 +251,15 @@ def test_project_health_graph_scores_only_primary_risks() -> None:
         rationale="The external API team has not provided credentials.",
     )
 
+    summary = ProjectHealthSummary(
+        project_id="PROJ-001",
+        health_score=82.0,
+        health_status=HealthStatus.HEALTHY,
+        executive_summary="Project health is healthy.",
+        top_risks=[],
+        recommended_actions=[],
+    )
+
     risk_analyzer.analyze.return_value = [
         blocker,
         dependency,
@@ -229,11 +267,14 @@ def test_project_health_graph_scores_only_primary_risks() -> None:
 
     retrieval_service.retrieve.return_value = []
 
+    summary_generator.generate.return_value = summary
+
     graph = build_project_health_graph(
         retrieval_service=retrieval_service,
         risk_analyzer=risk_analyzer,
         risk_consolidator=risk_consolidator,
         health_scorer=health_scorer,
+        summary_generator=summary_generator,
     )
 
     result = graph.invoke(
@@ -252,3 +293,10 @@ def test_project_health_graph_scores_only_primary_risks() -> None:
     assert health_score.score == 82.0
     assert health_score.status == HealthStatus.HEALTHY
     assert health_score.contributing_risks == ["SIG-001"]
+
+    assert result["summary"] == summary
+
+    summary_generator.generate.assert_called_once_with(
+        health_score=health_score,
+        risk_signals=[blocker],
+    )

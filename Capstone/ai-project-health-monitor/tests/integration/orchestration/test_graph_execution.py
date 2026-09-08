@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from unittest import result
 from unittest.mock import Mock
 
 from ai_project_health_monitor.analysis.deterministic_health_scorer import (
@@ -31,6 +32,10 @@ from ai_project_health_monitor.orchestration.graph import (
 from ai_project_health_monitor.rag.models.chunk import DocumentChunk
 from ai_project_health_monitor.rag.models.retrieval import RetrievalResult
 from ai_project_health_monitor.rag.retrieval import RetrievalService
+from ai_project_health_monitor.analysis.health_alert_evaluator import (
+    HealthAlertEvaluator,
+)
+from ai_project_health_monitor.domain.models.health_alert import HealthAlert
 
 
 def test_project_health_graph_executes_end_to_end() -> None:
@@ -39,6 +44,7 @@ def test_project_health_graph_executes_end_to_end() -> None:
     risk_consolidator = Mock(spec=RiskConsolidator)
     health_scorer = Mock(spec=HealthScorer)
     summary_generator = Mock(spec=HealthSummaryGenerator)
+    alert_evaluator = Mock(spec=HealthAlertEvaluator)
 
     chunk = DocumentChunk(
         chunk_id="CHUNK-001",
@@ -111,6 +117,14 @@ def test_project_health_graph_executes_end_to_end() -> None:
         recommended_actions=[],
     )
 
+    alert = HealthAlert(
+        project_id="PROJ-001",
+        health_score=60.0,
+        health_status=HealthStatus.AT_RISK,
+        message="No critical alert required.",
+        triggered=False,
+    )
+
     retrieval_service.retrieve.return_value = [
         retrieval_result,
     ]
@@ -131,12 +145,15 @@ def test_project_health_graph_executes_end_to_end() -> None:
 
     summary_generator.generate.return_value = summary
 
+    alert_evaluator.evaluate.return_value = alert
+
     graph = build_project_health_graph(
         retrieval_service=retrieval_service,
         risk_analyzer=risk_analyzer,
         risk_consolidator=risk_consolidator,
         health_scorer=health_scorer,
         summary_generator=summary_generator,
+        alert_evaluator=alert_evaluator,
     )
 
     result = graph.invoke(
@@ -172,6 +189,7 @@ def test_project_health_graph_executes_end_to_end() -> None:
 
     assert result["health_score"] == health_score
     assert result["summary"] == summary
+    assert result["alert"] == alert
 
     retrieval_service.retrieve.assert_called_once_with(
         query="What risks are affecting the project?",
@@ -203,6 +221,9 @@ def test_project_health_graph_executes_end_to_end() -> None:
         risk_signals=[risk_signal],
     )
 
+    alert_evaluator.evaluate.assert_called_once_with(
+        health_score=health_score,
+    )
 
 def test_project_health_graph_scores_only_primary_risks() -> None:
     retrieval_service = Mock(spec=RetrievalService)
@@ -210,6 +231,7 @@ def test_project_health_graph_scores_only_primary_risks() -> None:
     risk_consolidator = RiskConsolidator()
     health_scorer = DeterministicHealthScorer()
     summary_generator = Mock(spec=HealthSummaryGenerator)
+    alert_evaluator = Mock(spec=HealthAlertEvaluator)
 
     evidence = Evidence(
         event_id="EVT-001",
@@ -251,6 +273,13 @@ def test_project_health_graph_scores_only_primary_risks() -> None:
         rationale="The external API team has not provided credentials.",
     )
 
+    risk_analyzer.analyze.return_value = [
+        blocker,
+        dependency,
+    ]
+
+    retrieval_service.retrieve.return_value = []
+
     summary = ProjectHealthSummary(
         project_id="PROJ-001",
         health_score=82.0,
@@ -260,14 +289,16 @@ def test_project_health_graph_scores_only_primary_risks() -> None:
         recommended_actions=[],
     )
 
-    risk_analyzer.analyze.return_value = [
-        blocker,
-        dependency,
-    ]
-
-    retrieval_service.retrieve.return_value = []
+    alert = HealthAlert(
+        project_id="PROJ-001",
+        health_score=82.0,
+        health_status=HealthStatus.HEALTHY,
+        message="No critical alert required.",
+        triggered=False,
+    )
 
     summary_generator.generate.return_value = summary
+    alert_evaluator.evaluate.return_value = alert
 
     graph = build_project_health_graph(
         retrieval_service=retrieval_service,
@@ -275,6 +306,7 @@ def test_project_health_graph_scores_only_primary_risks() -> None:
         risk_consolidator=risk_consolidator,
         health_scorer=health_scorer,
         summary_generator=summary_generator,
+        alert_evaluator=alert_evaluator,
     )
 
     result = graph.invoke(
@@ -295,8 +327,119 @@ def test_project_health_graph_scores_only_primary_risks() -> None:
     assert health_score.contributing_risks == ["SIG-001"]
 
     assert result["summary"] == summary
+    assert result["alert"] == alert
 
     summary_generator.generate.assert_called_once_with(
         health_score=health_score,
         risk_signals=[blocker],
+    )
+
+    alert_evaluator.evaluate.assert_called_once_with(
+        health_score=health_score,
+    )
+def test_project_health_graph_triggers_alert_for_critical_health() -> None:
+    retrieval_service = Mock(spec=RetrievalService)
+    risk_analyzer = Mock(spec=LLMRiskAnalyzer)
+    risk_consolidator = RiskConsolidator()
+    health_scorer = DeterministicHealthScorer()
+    summary_generator = Mock(spec=HealthSummaryGenerator)
+    alert_evaluator = Mock(spec=HealthAlertEvaluator)
+
+    evidence = Evidence(
+        event_id="EVT-001",
+        source_type=SourceType.JIRA,
+        source_id="EVT-001",
+        content="Production deployment is blocked by a critical issue.",
+        occurred_at=datetime(
+            2026,
+            9,
+            1,
+            tzinfo=UTC,
+        ),
+    )
+
+    risk_signal = RiskSignal(
+        signal_id="SIG-001",
+        project_id="PROJ-001",
+        event_id="EVT-001",
+        risk_type=RiskType.BLOCKER,
+        severity=RiskSeverity.CRITICAL,
+        confidence=1.0,
+        evidence=evidence,
+        evidence_quote=evidence.content,
+        rationale="Production deployment is blocked.",
+    )
+
+
+    evidence_2 = Evidence(
+        event_id="EVT-002",
+        source_type=SourceType.JIRA,
+        source_id="EVT-002",
+        content="Critical delivery delay has put the release timeline at risk.",
+        occurred_at=datetime(
+            2026,
+            9,
+            2,
+            tzinfo=UTC,
+        ),
+    )
+
+
+    risk_signal_2 = RiskSignal(
+        signal_id="SIG-002",
+        project_id="PROJ-001",
+        event_id="EVT-002",
+        risk_type=RiskType.DELAY,
+        severity=RiskSeverity.CRITICAL,
+        confidence=1.0,
+        evidence=evidence_2,
+        evidence_quote=evidence_2.content,
+        rationale="Critical delivery delay detected.",
+    )
+
+    alert = HealthAlert(
+        project_id="PROJ-001",
+        health_score=30.0,
+        health_status=HealthStatus.CRITICAL,
+        message="Immediate attention is required.",
+        triggered=True,
+    )
+
+    retrieval_service.retrieve.return_value = []
+    risk_analyzer.analyze.return_value = [risk_signal, risk_signal_2]
+    summary_generator.generate.return_value = ProjectHealthSummary(
+    project_id="PROJ-001",
+    health_score=30.0,
+    health_status=HealthStatus.CRITICAL,
+    executive_summary="Project health is critical.",
+    top_risks=[],
+    recommended_actions=[
+        "Resolve the production deployment blocker.",
+    ],
+    )
+    alert_evaluator.evaluate.return_value = alert
+
+    graph = build_project_health_graph(
+        retrieval_service=retrieval_service,
+        risk_analyzer=risk_analyzer,
+        risk_consolidator=risk_consolidator,
+        health_scorer=health_scorer,
+        summary_generator=summary_generator,
+        alert_evaluator=alert_evaluator,
+    )
+
+    result = graph.invoke(
+        {
+            "project_id": "PROJ-001",
+            "query": "What is the current project health?",
+        }
+    )
+
+    assert result["health_score"].score == 30.0
+    assert result["health_score"].status == HealthStatus.CRITICAL
+    assert result["alert"] == alert
+    assert result["alert_triggered"] is True
+    
+    alert_evaluator.evaluate.assert_called_once_with(
+    health_score=result["health_score"],
     )

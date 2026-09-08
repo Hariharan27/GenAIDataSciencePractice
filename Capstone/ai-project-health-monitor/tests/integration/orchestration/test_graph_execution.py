@@ -30,6 +30,7 @@ from ai_project_health_monitor.domain.models.risk_signal import (
     RiskSignal,
     RiskType,
 )
+from ai_project_health_monitor.notifications.alert_deduplicator import AlertDeduplicator
 from ai_project_health_monitor.notifications.alert_notifier import AlertNotifier
 from ai_project_health_monitor.orchestration.graph import (
     build_project_health_graph,
@@ -37,6 +38,9 @@ from ai_project_health_monitor.orchestration.graph import (
 from ai_project_health_monitor.rag.models.chunk import DocumentChunk
 from ai_project_health_monitor.rag.models.retrieval import RetrievalResult
 from ai_project_health_monitor.rag.retrieval import RetrievalService
+from ai_project_health_monitor.notifications.alert_deduplicator import (
+    AlertDeduplicator,
+)
 
 
 def test_project_health_graph_executes_end_to_end() -> None:
@@ -47,6 +51,7 @@ def test_project_health_graph_executes_end_to_end() -> None:
     summary_generator = Mock(spec=HealthSummaryGenerator)
     alert_evaluator = Mock(spec=HealthAlertEvaluator)
     notifier = Mock(spec=AlertNotifier)
+    deduplicator = Mock(spec=AlertDeduplicator)
 
     chunk = DocumentChunk(
         chunk_id="CHUNK-001",
@@ -157,6 +162,7 @@ def test_project_health_graph_executes_end_to_end() -> None:
         summary_generator=summary_generator,
         alert_evaluator=alert_evaluator,
         notifier=notifier,
+        deduplicator=deduplicator,
     )
 
     result = graph.invoke(
@@ -239,6 +245,7 @@ def test_project_health_graph_scores_only_primary_risks() -> None:
     summary_generator = Mock(spec=HealthSummaryGenerator)
     alert_evaluator = Mock(spec=HealthAlertEvaluator)
     notifier = Mock(spec=AlertNotifier)
+    deduplicator = Mock(spec=AlertDeduplicator)
 
     evidence = Evidence(
         event_id="EVT-001",
@@ -315,6 +322,7 @@ def test_project_health_graph_scores_only_primary_risks() -> None:
         summary_generator=summary_generator,
         alert_evaluator=alert_evaluator,
         notifier=notifier,
+        deduplicator=deduplicator,
     )
 
     result = graph.invoke(
@@ -357,6 +365,7 @@ def test_project_health_graph_triggers_alert_for_critical_health() -> None:
     summary_generator = Mock(spec=HealthSummaryGenerator)
     alert_evaluator = Mock(spec=HealthAlertEvaluator)
     notifier = Mock(spec=AlertNotifier)
+    deduplicator = Mock(spec=AlertDeduplicator)
 
     evidence = Evidence(
         event_id="EVT-001",
@@ -443,6 +452,7 @@ def test_project_health_graph_triggers_alert_for_critical_health() -> None:
         summary_generator=summary_generator,
         alert_evaluator=alert_evaluator,
         notifier=notifier,
+        deduplicator=deduplicator,
     )
 
     result = graph.invoke(

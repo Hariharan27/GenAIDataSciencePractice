@@ -7,6 +7,9 @@ from ai_project_health_monitor.domain.models.health_score import HealthStatus
 from ai_project_health_monitor.notifications.alert_notifier import AlertNotifier
 from ai_project_health_monitor.orchestration.nodes.trigger_alert import TriggerAlertNode
 from ai_project_health_monitor.orchestration.state import ProjectHealthState
+from ai_project_health_monitor.notifications.alert_deduplicator import (
+    AlertDeduplicator,
+)
 
 
 def test_trigger_alert_node_notifies_when_alert_is_triggered() -> None:
@@ -24,7 +27,9 @@ def test_trigger_alert_node_notifies_when_alert_is_triggered() -> None:
         alert=alert,
     )
 
-    node = TriggerAlertNode(notifier=notifier)
+    deduplicator = Mock(spec=AlertDeduplicator)
+
+    node = TriggerAlertNode(notifier=notifier, deduplicator=deduplicator)
 
     result = node(state)
 
@@ -39,8 +44,9 @@ def test_trigger_alert_node_rejects_missing_alert() -> None:
         query="What is the current project health?",
         alert=None,
     )
+    deduplicator = Mock(spec=AlertDeduplicator)
 
-    node = TriggerAlertNode(notifier=notifier)
+    node = TriggerAlertNode(notifier=notifier, deduplicator=deduplicator)
 
     with pytest.raises(
         ValueError,
@@ -66,7 +72,9 @@ def test_trigger_alert_node_rejects_non_triggered_alert() -> None:
         alert=alert,
     )
 
-    node = TriggerAlertNode(notifier=notifier)
+    deduplicator = Mock(spec=AlertDeduplicator)
+
+    node = TriggerAlertNode(notifier=notifier, deduplicator=deduplicator)
 
     with pytest.raises(
         ValueError,
@@ -75,3 +83,37 @@ def test_trigger_alert_node_rejects_non_triggered_alert() -> None:
         node(state)
 
     notifier.notify.assert_not_called()
+
+def test_trigger_alert_node_suppresses_duplicate_notification() -> None:
+    notifier = Mock(spec=AlertNotifier)
+    deduplicator = Mock(spec=AlertDeduplicator)
+
+    alert = HealthAlert(
+        project_id="PROJ-001",
+        health_score=30.0,
+        health_status=HealthStatus.CRITICAL,
+        message="Immediate attention is required.",
+        triggered=True,
+    )
+
+    state = ProjectHealthState(
+        project_id="PROJ-001",
+        query="What is the current project health?",
+        alert=alert,
+    )
+
+    deduplicator.should_notify.side_effect = [True, False]
+
+    node = TriggerAlertNode(
+        notifier=notifier,
+        deduplicator=deduplicator,
+    )
+
+    first_result = node(state)
+    second_result = node(state)
+
+    assert first_result == {"alert_triggered": True}
+    assert second_result == {"alert_triggered": True}
+
+    assert deduplicator.should_notify.call_count == 2
+    notifier.notify.assert_called_once_with(alert)

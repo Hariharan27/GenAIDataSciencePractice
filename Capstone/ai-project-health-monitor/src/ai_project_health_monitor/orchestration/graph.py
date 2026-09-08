@@ -8,6 +8,8 @@ from ai_project_health_monitor.analysis.llm_risk_analyzer import LLMRiskAnalyzer
 from ai_project_health_monitor.analysis.risk_analyzer import RiskAnalyzer
 from ai_project_health_monitor.analysis.risk_consolidator import RiskConsolidator
 from ai_project_health_monitor.notifications.alert_deduplicator import AlertDeduplicator
+from ai_project_health_monitor.notifications.alert_escalator import AlertEscalator
+from ai_project_health_monitor.notifications.alert_escalator_notifier import AlertEscalatorNotifier
 from ai_project_health_monitor.orchestration.nodes.analyze_risks import (
     AnalyzeRisksNode,
 )
@@ -52,6 +54,8 @@ def build_project_health_graph(
     alert_evaluator: HealthAlertEvaluator,
     notifier: AlertNotifier,
     deduplicator: AlertDeduplicator,
+    escalator: AlertEscalator,
+    escalation_notifier: AlertEscalatorNotifier,
 ) -> CompiledStateGraph[ProjectHealthState, None, ProjectHealthState, ProjectHealthState]:
     """Build and compile the project health analysis workflow."""
 
@@ -79,7 +83,12 @@ def build_project_health_graph(
         alert_evaluator=alert_evaluator,
     )
 
-    trigger_alert = TriggerAlertNode(notifier=notifier, deduplicator=deduplicator)
+    trigger_alert = TriggerAlertNode(
+        notifier=notifier,
+        deduplicator=deduplicator,
+        escalator=escalator,
+        escalation_notifier=escalation_notifier,
+    )
 
     graph = StateGraph(ProjectHealthState)
 

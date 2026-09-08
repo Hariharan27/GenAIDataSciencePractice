@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from unittest.mock import Mock
 
+from ai_project_health_monitor.analysis.deterministic_health_scorer import DeterministicHealthScorer
 from ai_project_health_monitor.analysis.health_scorer import HealthScorer
 from ai_project_health_monitor.analysis.llm_risk_analyzer import LLMRiskAnalyzer
 from ai_project_health_monitor.analysis.risk_consolidator import RiskConsolidator
@@ -174,3 +175,80 @@ def test_project_health_graph_executes_end_to_end() -> None:
         project_id="PROJ-001",
         risk_signals=[risk_signal],
     )
+
+def test_project_health_graph_scores_only_primary_risks() -> None:
+    retrieval_service = Mock(spec=RetrievalService)
+    risk_analyzer = Mock(spec=LLMRiskAnalyzer)
+    risk_consolidator = RiskConsolidator()
+    health_scorer = DeterministicHealthScorer()
+
+    evidence = Evidence(
+        event_id="EVT-001",
+        source_type=SourceType.JIRA,
+        source_id="EVT-001",
+        content=(
+            "Payment API integration is blocked because "
+            "the external API team has not provided credentials."
+        ),
+        occurred_at=datetime(
+            2026,
+            9,
+            1,
+            tzinfo=UTC,
+        ),
+    )
+
+    blocker = RiskSignal(
+        signal_id="SIG-001",
+        project_id="PROJ-001",
+        event_id="EVT-001",
+        risk_type=RiskType.BLOCKER,
+        severity=RiskSeverity.HIGH,
+        confidence=0.9,
+        evidence=evidence,
+        evidence_quote=evidence.content,
+        rationale="Payment API integration is blocked.",
+    )
+
+    dependency = RiskSignal(
+        signal_id="SIG-002",
+        project_id="PROJ-001",
+        event_id="EVT-001",
+        risk_type=RiskType.DEPENDENCY,
+        severity=RiskSeverity.HIGH,
+        confidence=0.9,
+        evidence=evidence,
+        evidence_quote=evidence.content,
+        rationale="The external API team has not provided credentials.",
+    )
+
+    risk_analyzer.analyze.return_value = [
+        blocker,
+        dependency,
+    ]
+
+    retrieval_service.retrieve.return_value = []
+
+    graph = build_project_health_graph(
+        retrieval_service=retrieval_service,
+        risk_analyzer=risk_analyzer,
+        risk_consolidator=risk_consolidator,
+        health_scorer=health_scorer,
+    )
+
+    result = graph.invoke(
+        {
+            "project_id": "PROJ-001",
+            "query": "What risks are affecting the payment API?",
+        }
+    )
+
+    assert len(result["risk_signals"]) == 2
+    assert len(result["risk_groups"]) == 1
+    assert result["primary_risks"] == [blocker]
+
+    health_score = result["health_score"]
+
+    assert health_score.score == 82.0
+    assert health_score.status == HealthStatus.HEALTHY
+    assert health_score.contributing_risks == ["SIG-001"]

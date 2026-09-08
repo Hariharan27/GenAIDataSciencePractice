@@ -117,7 +117,7 @@ def test_calculate_classifies_at_risk(
     assert result.status == HealthStatus.AT_RISK
 
 
-def test_calculate_classifies_critical(
+def test_calculate_remains_at_risk_above_critical_threshold(
     scorer: DeterministicHealthScorer,
     evidence: Evidence,
 ) -> None:
@@ -239,3 +239,102 @@ def test_calculate_includes_risk_details_in_rationale(
     assert "delay" in result.rationale
     assert "high" in result.rationale
     assert "80.0/100" in result.rationale
+
+def test_calculate_keeps_exactly_seventy_healthy(
+    scorer: DeterministicHealthScorer,
+    evidence: Evidence,
+) -> None:
+    signals = [
+        make_risk_signal(
+            evidence,
+            signal_id="RISK-CRITICAL",
+            severity=RiskSeverity.CRITICAL,
+            confidence=1.0,
+        ),
+        make_risk_signal(
+            evidence,
+            signal_id="RISK-HIGH",
+            severity=RiskSeverity.HIGH,
+            confidence=1.0,
+        ),
+        make_risk_signal(
+            evidence,
+            signal_id="RISK-MEDIUM",
+            severity=RiskSeverity.MEDIUM,
+            confidence=1.0,
+        ),
+        make_risk_signal(
+            evidence,
+            signal_id="RISK-LOW",
+            severity=RiskSeverity.LOW,
+            confidence=1.0,
+        ),
+    ]
+
+    result = scorer.calculate(
+        project_id="PROJ-001",
+        risk_signals=signals,
+    )
+
+    assert result.score == 30.0
+    assert result.status == HealthStatus.CRITICAL
+
+def test_calculate_keeps_exactly_seventy_healthy(
+    scorer: DeterministicHealthScorer,
+    evidence: Evidence,
+) -> None:
+    signals = [
+        make_risk_signal(
+            evidence,
+            signal_id="RISK-HIGH",
+            severity=RiskSeverity.HIGH,
+            confidence=1.0,
+        ),
+        make_risk_signal(
+            evidence,
+            signal_id="RISK-MEDIUM",
+            severity=RiskSeverity.MEDIUM,
+            confidence=1.0,
+        ),
+    ]
+
+    result = scorer.calculate(
+        project_id="PROJ-001",
+        risk_signals=signals,
+    )
+
+    assert result.score == 70.0
+    assert result.status == HealthStatus.HEALTHY
+
+def test_calculate_keeps_exactly_forty_at_risk(
+    scorer: DeterministicHealthScorer,
+    evidence: Evidence,
+) -> None:
+    signals = [
+        make_risk_signal(
+            evidence,
+            signal_id="RISK-CRITICAL",
+            severity=RiskSeverity.CRITICAL,
+            confidence=1.0,
+        ),
+        make_risk_signal(
+            evidence,
+            signal_id="RISK-HIGH",
+            severity=RiskSeverity.HIGH,
+            confidence=1.0,
+        ),
+        make_risk_signal(
+            evidence,
+            signal_id="RISK-LOW",
+            severity=RiskSeverity.LOW,
+            confidence=1.0,
+        ),
+    ]
+
+    result = scorer.calculate(
+        project_id="PROJ-001",
+        risk_signals=signals,
+    )
+
+    assert result.score == 40.0
+    assert result.status == HealthStatus.AT_RISK

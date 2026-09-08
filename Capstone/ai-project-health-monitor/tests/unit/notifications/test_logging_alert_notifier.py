@@ -1,15 +1,16 @@
-import logging
+from unittest.mock import Mock
 
 from ai_project_health_monitor.domain.models.health_alert import HealthAlert
 from ai_project_health_monitor.domain.models.health_score import HealthStatus
+from ai_project_health_monitor.notifications.alert_delivery import AlertDelivery
 from ai_project_health_monitor.notifications.logging_alert_notifier import (
     LoggingAlertNotifier,
 )
 
 
-def test_logging_alert_notifier_logs_health_alert(
-    caplog,
-) -> None:
+def test_logging_alert_notifier_delegates_to_delivery() -> None:
+    delivery = Mock(spec=AlertDelivery)
+
     alert = HealthAlert(
         project_id="PROJ-001",
         health_score=30.0,
@@ -18,13 +19,8 @@ def test_logging_alert_notifier_logs_health_alert(
         triggered=True,
     )
 
-    notifier = LoggingAlertNotifier()
+    notifier = LoggingAlertNotifier(delivery=delivery)
 
-    with caplog.at_level(logging.WARNING):
-        notifier.notify(alert)
+    notifier.notify(alert)
 
-    assert "PROJECT HEALTH ALERT" in caplog.text
-    assert "project_id=PROJ-001" in caplog.text
-    assert "health_score=30.0" in caplog.text
-    assert "health_status=critical" in caplog.text
-    assert "Immediate attention is required." in caplog.text
+    delivery.deliver.assert_called_once_with(alert)

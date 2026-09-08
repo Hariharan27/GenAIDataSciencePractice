@@ -18,6 +18,7 @@ from ai_project_health_monitor.orchestration.graph import (
     route_after_alert_evaluation,
 )
 from ai_project_health_monitor.orchestration.state import ProjectHealthState
+from ai_project_health_monitor.notifications.alert_notifier import AlertNotifier
 
 
 def test_project_health_graph_can_be_compiled() -> None:
@@ -26,6 +27,7 @@ def test_project_health_graph_can_be_compiled() -> None:
     risk_consolidator = Mock(spec=RiskConsolidator)
     health_scorer = Mock(spec=HealthScorer)
     summary_generator = Mock(spec=HealthSummaryGenerator)
+    notifier = Mock(spec=AlertNotifier)
 
     graph = build_project_health_graph(
         retrieval_service=retrieval_service,
@@ -33,7 +35,8 @@ def test_project_health_graph_can_be_compiled() -> None:
         risk_consolidator=risk_consolidator,
         health_scorer=health_scorer,
         summary_generator=summary_generator,
-        alert_evaluator = Mock(spec=HealthAlertEvaluator)
+        alert_evaluator = Mock(spec=HealthAlertEvaluator),
+        notifier=notifier,
     )
 
     assert graph is not None

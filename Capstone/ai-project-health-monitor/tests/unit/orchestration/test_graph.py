@@ -19,6 +19,9 @@ from ai_project_health_monitor.orchestration.graph import (
 )
 from ai_project_health_monitor.orchestration.state import ProjectHealthState
 from ai_project_health_monitor.notifications.alert_notifier import AlertNotifier
+from ai_project_health_monitor.notifications.alert_deduplicator import (
+    AlertDeduplicator,
+)
 
 
 def test_project_health_graph_can_be_compiled() -> None:
@@ -28,6 +31,7 @@ def test_project_health_graph_can_be_compiled() -> None:
     health_scorer = Mock(spec=HealthScorer)
     summary_generator = Mock(spec=HealthSummaryGenerator)
     notifier = Mock(spec=AlertNotifier)
+    deduplicator = Mock(spec=AlertDeduplicator)
 
     graph = build_project_health_graph(
         retrieval_service=retrieval_service,
@@ -37,6 +41,7 @@ def test_project_health_graph_can_be_compiled() -> None:
         summary_generator=summary_generator,
         alert_evaluator = Mock(spec=HealthAlertEvaluator),
         notifier=notifier,
+        deduplicator=deduplicator,
     )
 
     assert graph is not None

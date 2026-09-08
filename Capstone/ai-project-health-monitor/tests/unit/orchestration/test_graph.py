@@ -4,6 +4,8 @@ from ai_project_health_monitor.analysis.health_alert_evaluator import HealthAler
 from ai_project_health_monitor.analysis.health_scorer import HealthScorer
 from ai_project_health_monitor.analysis.llm_risk_analyzer import LLMRiskAnalyzer
 from ai_project_health_monitor.analysis.risk_consolidator import RiskConsolidator
+from ai_project_health_monitor.notifications.alert_escalator import AlertEscalator
+from ai_project_health_monitor.notifications.alert_escalator_notifier import AlertEscalatorNotifier
 from ai_project_health_monitor.orchestration.graph import (
     build_project_health_graph,
 )
@@ -32,6 +34,8 @@ def test_project_health_graph_can_be_compiled() -> None:
     summary_generator = Mock(spec=HealthSummaryGenerator)
     notifier = Mock(spec=AlertNotifier)
     deduplicator = Mock(spec=AlertDeduplicator)
+    escalator = Mock(spec=AlertEscalator)
+    escalation_notifier = Mock(spec=AlertEscalatorNotifier)
 
     graph = build_project_health_graph(
         retrieval_service=retrieval_service,
@@ -42,6 +46,8 @@ def test_project_health_graph_can_be_compiled() -> None:
         alert_evaluator = Mock(spec=HealthAlertEvaluator),
         notifier=notifier,
         deduplicator=deduplicator,
+        escalator=escalator,
+        escalation_notifier=escalation_notifier,
     )
 
     assert graph is not None

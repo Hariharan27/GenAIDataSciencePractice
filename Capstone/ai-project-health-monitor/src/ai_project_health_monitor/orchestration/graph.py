@@ -5,6 +5,7 @@ from langgraph.graph.state import CompiledStateGraph
 from ai_project_health_monitor.analysis.health_scorer import HealthScorer
 from ai_project_health_monitor.analysis.health_summary_generator import HealthSummaryGenerator
 from ai_project_health_monitor.analysis.llm_risk_analyzer import LLMRiskAnalyzer
+from ai_project_health_monitor.analysis.risk_analyzer import RiskAnalyzer
 from ai_project_health_monitor.analysis.risk_consolidator import RiskConsolidator
 from ai_project_health_monitor.orchestration.nodes.analyze_risks import (
     AnalyzeRisksNode,
@@ -26,6 +27,8 @@ from ai_project_health_monitor.analysis.health_alert_evaluator import (
 from ai_project_health_monitor.orchestration.nodes.evaluate_alert import (
     EvaluateAlertNode,
 )
+from ai_project_health_monitor.notifications.alert_notifier import AlertNotifier
+
 
 def route_after_alert_evaluation(
     state: ProjectHealthState,
@@ -41,11 +44,12 @@ def route_after_alert_evaluation(
 
 def build_project_health_graph(
     retrieval_service: RetrievalService,
-    risk_analyzer: LLMRiskAnalyzer,
+    risk_analyzer: RiskAnalyzer,
     risk_consolidator: RiskConsolidator,
     health_scorer: HealthScorer,
     summary_generator: HealthSummaryGenerator,
     alert_evaluator: HealthAlertEvaluator,
+    notifier: AlertNotifier,
 ) -> CompiledStateGraph[ProjectHealthState, None, ProjectHealthState, ProjectHealthState]:
     """Build and compile the project health analysis workflow."""
 
@@ -66,14 +70,14 @@ def build_project_health_graph(
     )
 
     generate_summary_node = GenerateSummaryNode(
-    summary_generator=summary_generator,
+        summary_generator=summary_generator,
     )
 
     evaluate_alert_node = EvaluateAlertNode(
-    alert_evaluator=alert_evaluator,
+        alert_evaluator=alert_evaluator,
     )
 
-    trigger_alert_node = TriggerAlertNode()
+    trigger_alert = TriggerAlertNode(notifier=notifier)
 
     graph = StateGraph(ProjectHealthState)
 
@@ -83,7 +87,7 @@ def build_project_health_graph(
     graph.add_node("calculate_health", calculate_health_node)
     graph.add_node("generate_summary", generate_summary_node)
     graph.add_node("evaluate_alert", evaluate_alert_node)
-    graph.add_node("alert", trigger_alert_node)
+    graph.add_node("alert", trigger_alert)
 
     graph.add_edge(START, "retrieve")
     graph.add_edge("retrieve", "analyze_risks")
@@ -92,12 +96,12 @@ def build_project_health_graph(
     graph.add_edge("calculate_health", "generate_summary")
     graph.add_edge("generate_summary", "evaluate_alert")
     graph.add_conditional_edges(
-    "evaluate_alert",
-    route_after_alert_evaluation,
-    {
-        "alert": "alert",
-        END: END,
-    },
+        "evaluate_alert",
+        route_after_alert_evaluation,
+        {
+            "alert": "alert",
+            END: END,
+        },
     )
     graph.add_edge("alert", END)
 

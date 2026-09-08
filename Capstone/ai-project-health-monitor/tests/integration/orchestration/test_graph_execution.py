@@ -1,17 +1,21 @@
 from datetime import UTC, datetime
-from unittest import result
 from unittest.mock import Mock
 
 from ai_project_health_monitor.analysis.deterministic_health_scorer import (
     DeterministicHealthScorer,
+)
+from ai_project_health_monitor.analysis.health_alert_evaluator import (
+    HealthAlertEvaluator,
 )
 from ai_project_health_monitor.analysis.health_scorer import HealthScorer
 from ai_project_health_monitor.analysis.health_summary_generator import (
     HealthSummaryGenerator,
 )
 from ai_project_health_monitor.analysis.llm_risk_analyzer import LLMRiskAnalyzer
+from ai_project_health_monitor.analysis.risk_analyzer import RiskAnalyzer
 from ai_project_health_monitor.analysis.risk_consolidator import RiskConsolidator
 from ai_project_health_monitor.domain.models.evidence import Evidence
+from ai_project_health_monitor.domain.models.health_alert import HealthAlert
 from ai_project_health_monitor.domain.models.health_score import (
     HealthScore,
     HealthStatus,
@@ -26,16 +30,13 @@ from ai_project_health_monitor.domain.models.risk_signal import (
     RiskSignal,
     RiskType,
 )
+from ai_project_health_monitor.notifications.alert_notifier import AlertNotifier
 from ai_project_health_monitor.orchestration.graph import (
     build_project_health_graph,
 )
 from ai_project_health_monitor.rag.models.chunk import DocumentChunk
 from ai_project_health_monitor.rag.models.retrieval import RetrievalResult
 from ai_project_health_monitor.rag.retrieval import RetrievalService
-from ai_project_health_monitor.analysis.health_alert_evaluator import (
-    HealthAlertEvaluator,
-)
-from ai_project_health_monitor.domain.models.health_alert import HealthAlert
 
 
 def test_project_health_graph_executes_end_to_end() -> None:
@@ -45,6 +46,7 @@ def test_project_health_graph_executes_end_to_end() -> None:
     health_scorer = Mock(spec=HealthScorer)
     summary_generator = Mock(spec=HealthSummaryGenerator)
     alert_evaluator = Mock(spec=HealthAlertEvaluator)
+    notifier = Mock(spec=AlertNotifier)
 
     chunk = DocumentChunk(
         chunk_id="CHUNK-001",
@@ -154,6 +156,7 @@ def test_project_health_graph_executes_end_to_end() -> None:
         health_scorer=health_scorer,
         summary_generator=summary_generator,
         alert_evaluator=alert_evaluator,
+        notifier=notifier,
     )
 
     result = graph.invoke(
@@ -225,6 +228,9 @@ def test_project_health_graph_executes_end_to_end() -> None:
         health_score=health_score,
     )
 
+    notifier.notify.assert_not_called()
+
+
 def test_project_health_graph_scores_only_primary_risks() -> None:
     retrieval_service = Mock(spec=RetrievalService)
     risk_analyzer = Mock(spec=LLMRiskAnalyzer)
@@ -232,6 +238,7 @@ def test_project_health_graph_scores_only_primary_risks() -> None:
     health_scorer = DeterministicHealthScorer()
     summary_generator = Mock(spec=HealthSummaryGenerator)
     alert_evaluator = Mock(spec=HealthAlertEvaluator)
+    notifier = Mock(spec=AlertNotifier)
 
     evidence = Evidence(
         event_id="EVT-001",
@@ -307,6 +314,7 @@ def test_project_health_graph_scores_only_primary_risks() -> None:
         health_scorer=health_scorer,
         summary_generator=summary_generator,
         alert_evaluator=alert_evaluator,
+        notifier=notifier,
     )
 
     result = graph.invoke(
@@ -337,6 +345,10 @@ def test_project_health_graph_scores_only_primary_risks() -> None:
     alert_evaluator.evaluate.assert_called_once_with(
         health_score=health_score,
     )
+
+    notifier.notify.assert_not_called()
+
+
 def test_project_health_graph_triggers_alert_for_critical_health() -> None:
     retrieval_service = Mock(spec=RetrievalService)
     risk_analyzer = Mock(spec=LLMRiskAnalyzer)
@@ -344,6 +356,7 @@ def test_project_health_graph_triggers_alert_for_critical_health() -> None:
     health_scorer = DeterministicHealthScorer()
     summary_generator = Mock(spec=HealthSummaryGenerator)
     alert_evaluator = Mock(spec=HealthAlertEvaluator)
+    notifier = Mock(spec=AlertNotifier)
 
     evidence = Evidence(
         event_id="EVT-001",
@@ -370,7 +383,6 @@ def test_project_health_graph_triggers_alert_for_critical_health() -> None:
         rationale="Production deployment is blocked.",
     )
 
-
     evidence_2 = Evidence(
         event_id="EVT-002",
         source_type=SourceType.JIRA,
@@ -383,7 +395,6 @@ def test_project_health_graph_triggers_alert_for_critical_health() -> None:
             tzinfo=UTC,
         ),
     )
-
 
     risk_signal_2 = RiskSignal(
         signal_id="SIG-002",
@@ -406,17 +417,22 @@ def test_project_health_graph_triggers_alert_for_critical_health() -> None:
     )
 
     retrieval_service.retrieve.return_value = []
-    risk_analyzer.analyze.return_value = [risk_signal, risk_signal_2]
+    risk_analyzer.analyze.return_value = [
+        risk_signal,
+        risk_signal_2,
+    ]
+
     summary_generator.generate.return_value = ProjectHealthSummary(
-    project_id="PROJ-001",
-    health_score=30.0,
-    health_status=HealthStatus.CRITICAL,
-    executive_summary="Project health is critical.",
-    top_risks=[],
-    recommended_actions=[
-        "Resolve the production deployment blocker.",
-    ],
+        project_id="PROJ-001",
+        health_score=30.0,
+        health_status=HealthStatus.CRITICAL,
+        executive_summary="Project health is critical.",
+        top_risks=[],
+        recommended_actions=[
+            "Resolve the production deployment blocker.",
+        ],
     )
+
     alert_evaluator.evaluate.return_value = alert
 
     graph = build_project_health_graph(
@@ -426,6 +442,7 @@ def test_project_health_graph_triggers_alert_for_critical_health() -> None:
         health_scorer=health_scorer,
         summary_generator=summary_generator,
         alert_evaluator=alert_evaluator,
+        notifier=notifier,
     )
 
     result = graph.invoke(
@@ -439,7 +456,9 @@ def test_project_health_graph_triggers_alert_for_critical_health() -> None:
     assert result["health_score"].status == HealthStatus.CRITICAL
     assert result["alert"] == alert
     assert result["alert_triggered"] is True
-    
+
     alert_evaluator.evaluate.assert_called_once_with(
-    health_score=result["health_score"],
+        health_score=result["health_score"],
     )
+
+    notifier.notify.assert_called_once_with(alert)

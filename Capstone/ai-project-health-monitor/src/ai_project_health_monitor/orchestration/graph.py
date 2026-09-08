@@ -10,6 +10,7 @@ from ai_project_health_monitor.analysis.risk_consolidator import RiskConsolidato
 from ai_project_health_monitor.notifications.alert_deduplicator import AlertDeduplicator
 from ai_project_health_monitor.notifications.alert_escalator import AlertEscalator
 from ai_project_health_monitor.notifications.alert_escalator_notifier import AlertEscalatorNotifier
+from ai_project_health_monitor.notifications.health_summary_notifier import HealthSummaryNotifier
 from ai_project_health_monitor.orchestration.nodes.analyze_risks import (
     AnalyzeRisksNode,
 )
@@ -31,6 +32,9 @@ from ai_project_health_monitor.orchestration.nodes.evaluate_alert import (
     EvaluateAlertNode,
 )
 from ai_project_health_monitor.notifications.alert_notifier import AlertNotifier
+from ai_project_health_monitor.orchestration.nodes.deliver_summary import (
+    DeliverSummaryNode,
+)
 
 
 def route_after_alert_evaluation(
@@ -56,6 +60,7 @@ def build_project_health_graph(
     deduplicator: AlertDeduplicator,
     escalator: AlertEscalator,
     escalation_notifier: AlertEscalatorNotifier,
+    summary_notifier: HealthSummaryNotifier,
 ) -> CompiledStateGraph[ProjectHealthState, None, ProjectHealthState, ProjectHealthState]:
     """Build and compile the project health analysis workflow."""
 
@@ -90,6 +95,10 @@ def build_project_health_graph(
         escalation_notifier=escalation_notifier,
     )
 
+    deliver_summary_node = DeliverSummaryNode(
+    summary_notifier=summary_notifier,
+    )
+
     graph = StateGraph(ProjectHealthState)
 
     graph.add_node("retrieve", retrieve_node)
@@ -99,13 +108,15 @@ def build_project_health_graph(
     graph.add_node("generate_summary", generate_summary_node)
     graph.add_node("evaluate_alert", evaluate_alert_node)
     graph.add_node("alert", trigger_alert)
+    graph.add_node("deliver_summary", deliver_summary_node)
 
     graph.add_edge(START, "retrieve")
     graph.add_edge("retrieve", "analyze_risks")
     graph.add_edge("analyze_risks", "consolidate_risks")
     graph.add_edge("consolidate_risks", "calculate_health")
     graph.add_edge("calculate_health", "generate_summary")
-    graph.add_edge("generate_summary", "evaluate_alert")
+    graph.add_edge("generate_summary", "deliver_summary")
+    graph.add_edge("deliver_summary", "evaluate_alert")
     graph.add_conditional_edges(
         "evaluate_alert",
         route_after_alert_evaluation,

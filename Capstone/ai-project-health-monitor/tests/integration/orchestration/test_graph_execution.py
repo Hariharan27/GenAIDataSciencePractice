@@ -43,6 +43,9 @@ from ai_project_health_monitor.rag.retrieval import RetrievalService
 from ai_project_health_monitor.notifications.alert_deduplicator import (
     AlertDeduplicator,
 )
+from ai_project_health_monitor.notifications.health_summary_notifier import (
+    HealthSummaryNotifier,
+)
 
 
 def test_project_health_graph_executes_end_to_end() -> None:
@@ -56,6 +59,7 @@ def test_project_health_graph_executes_end_to_end() -> None:
     deduplicator = Mock(spec=AlertDeduplicator)
     escalator = Mock(spec=AlertEscalator)
     escalation_notifier = Mock(spec=AlertEscalatorNotifier)
+    summary_notifier = Mock(spec=HealthSummaryNotifier)
 
     chunk = DocumentChunk(
         chunk_id="CHUNK-001",
@@ -169,6 +173,7 @@ def test_project_health_graph_executes_end_to_end() -> None:
         deduplicator=deduplicator,
         escalator=escalator,
         escalation_notifier=escalation_notifier,
+        summary_notifier=summary_notifier,
     )
 
     result = graph.invoke(
@@ -178,6 +183,7 @@ def test_project_health_graph_executes_end_to_end() -> None:
         }
     )
 
+    summary_notifier.notify.assert_called_once_with(summary)
     assert result["project_id"] == "PROJ-001"
     assert result["query"] == "What risks are affecting the project?"
 
@@ -254,6 +260,7 @@ def test_project_health_graph_scores_only_primary_risks() -> None:
     deduplicator = Mock(spec=AlertDeduplicator)
     escalator = Mock(spec=AlertEscalator)
     escalation_notifier = Mock(spec=AlertEscalatorNotifier)
+    summary_notifier = Mock(spec=HealthSummaryNotifier)
 
     evidence = Evidence(
         event_id="EVT-001",
@@ -333,6 +340,7 @@ def test_project_health_graph_scores_only_primary_risks() -> None:
         deduplicator=deduplicator,
         escalator=escalator,
         escalation_notifier=escalation_notifier,
+        summary_notifier=summary_notifier,
     )
 
     result = graph.invoke(
@@ -378,6 +386,7 @@ def test_project_health_graph_triggers_alert_for_critical_health() -> None:
     deduplicator = Mock(spec=AlertDeduplicator)
     escalator = Mock(spec=AlertEscalator)
     escalation_notifier = Mock(spec=AlertEscalatorNotifier)
+    summary_notifier = Mock(spec=HealthSummaryNotifier)
 
     evidence = Evidence(
         event_id="EVT-001",
@@ -443,16 +452,18 @@ def test_project_health_graph_triggers_alert_for_critical_health() -> None:
         risk_signal_2,
     ]
 
-    summary_generator.generate.return_value = ProjectHealthSummary(
-        project_id="PROJ-001",
-        health_score=30.0,
-        health_status=HealthStatus.CRITICAL,
-        executive_summary="Project health is critical.",
-        top_risks=[],
-        recommended_actions=[
-            "Resolve the production deployment blocker.",
-        ],
-    )
+    summary = ProjectHealthSummary(
+    project_id="PROJ-001",
+    health_score=30.0,
+    health_status=HealthStatus.CRITICAL,
+    executive_summary="Project health is critical.",
+    top_risks=[],
+    recommended_actions=[
+        "Resolve the production deployment blocker.",
+    ],
+)
+
+    summary_generator.generate.return_value = summary
 
     alert_evaluator.evaluate.return_value = alert
 
@@ -467,6 +478,7 @@ def test_project_health_graph_triggers_alert_for_critical_health() -> None:
         deduplicator=deduplicator,
         escalator=escalator,
         escalation_notifier=escalation_notifier,
+        summary_notifier=summary_notifier,
     )
 
     result = graph.invoke(
@@ -475,7 +487,7 @@ def test_project_health_graph_triggers_alert_for_critical_health() -> None:
             "query": "What is the current project health?",
         }
     )
-
+    summary_notifier.notify.assert_called_once_with(summary)
     assert result["health_score"].score == 30.0
     assert result["health_score"].status == HealthStatus.CRITICAL
     assert result["alert"] == alert

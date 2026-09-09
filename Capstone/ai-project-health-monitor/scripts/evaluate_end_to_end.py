@@ -9,6 +9,9 @@ from ai_project_health_monitor.analysis.evidence_adapter import EvidenceAdapter
 from ai_project_health_monitor.analysis.llm_factory import LLMClientFactory
 from ai_project_health_monitor.analysis.llm_risk_analyzer import LLMRiskAnalyzer
 from ai_project_health_monitor.analysis.risk_consolidator import RiskConsolidator
+from ai_project_health_monitor.analysis.risk_grounding_validator import (
+    DeterministicRiskGroundingValidator,
+)
 from ai_project_health_monitor.core.config import get_settings
 from ai_project_health_monitor.evaluation.end_to_end import EndToEndEvaluator
 from ai_project_health_monitor.evaluation.loaders import (
@@ -86,7 +89,8 @@ def main() -> None:
     llm_client = LLMClientFactory.create(settings)
 
     risk_analyzer = LLMRiskAnalyzer(
-        llm_client=llm_client,
+        llm_client,
+        DeterministicRiskGroundingValidator(),
     )
 
     risk_consolidator = RiskConsolidator()

@@ -56,6 +56,26 @@ class Settings(BaseSettings):
     together_api_key: str | None = None
     openai_api_key: str | None = None
 
+    qdrant_url: str = Field(
+        default="http://localhost:6333",
+        min_length=1,
+    )
+
+    jira_source_path: str = Field(
+        default="data/synthetic/jira/events.json",
+        min_length=1,
+    )
+
+    email_source_path: str = Field(
+        default="data/synthetic/emails/events.json",
+        min_length=1,
+    )
+
+    document_source_directory: str = Field(
+        default="data/synthetic/documents",
+        min_length=1,
+    )
+
 
 @lru_cache
 def get_settings() -> Settings:

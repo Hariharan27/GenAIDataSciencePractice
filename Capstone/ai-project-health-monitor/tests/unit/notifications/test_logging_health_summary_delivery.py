@@ -1,4 +1,3 @@
-from datetime import UTC, datetime
 from unittest.mock import patch
 
 from ai_project_health_monitor.domain.models.health_score import HealthStatus

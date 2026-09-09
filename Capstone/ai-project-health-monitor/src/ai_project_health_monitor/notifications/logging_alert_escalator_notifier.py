@@ -5,7 +5,6 @@ from ai_project_health_monitor.notifications.alert_escalator_notifier import (
     AlertEscalatorNotifier,
 )
 
-
 logger = logging.getLogger(__name__)
 
 

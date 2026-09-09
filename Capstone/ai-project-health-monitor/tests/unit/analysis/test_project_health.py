@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime
 from unittest.mock import Mock
 
@@ -9,6 +10,9 @@ from ai_project_health_monitor.analysis.llm_risk_analyzer import LLMRiskAnalyzer
 from ai_project_health_monitor.analysis.project_health import ProjectHealthService
 from ai_project_health_monitor.analysis.risk_analyzer import RiskAnalyzer
 from ai_project_health_monitor.analysis.risk_consolidator import RiskConsolidator
+from ai_project_health_monitor.analysis.risk_grounding_validator import (
+    DeterministicRiskGroundingValidator,
+)
 from ai_project_health_monitor.domain.models.evidence import Evidence
 from ai_project_health_monitor.domain.models.health_score import HealthScore, HealthStatus
 from ai_project_health_monitor.domain.models.project_event import SourceType
@@ -57,20 +61,27 @@ def test_analyze_extracts_valid_risk_signal(
     evidence: list[Evidence],
     query: str,
 ) -> None:
-    llm_client.generate.return_value = """
-    [
-        {
-            "risk_type": "blocker",
-            "severity": "high",
-            "confidence": 0.95,
-            "evidence_source_id": "EVT-JIRA-001",
-            "evidence_quote": "Payment API integration is blocked because external API credentials are missing.",
-            "rationale": "The payment API integration is blocked by missing credentials."
-        }
-    ]
-    """
+    
+    llm_client.generate.return_value = json.dumps(
+        [
+            {
+                "risk_type": "blocker",
+                "severity": "high",
+                "confidence": 0.95,
+                "evidence_source_id": "EVT-JIRA-001",
+                "evidence_quote": (
+                    "Payment API integration is blocked because external API "
+                    "credentials are missing."
+                ),
+                "rationale": "The payment API integration is blocked by missing credentials.",
+            }
+        ]
+    )
 
-    analyzer = LLMRiskAnalyzer(llm_client)
+    analyzer = LLMRiskAnalyzer(
+        llm_client,
+        DeterministicRiskGroundingValidator(),
+    )
 
     signals = analyzer.analyze(
         project_id="PROJ-001",
@@ -98,7 +109,10 @@ def test_analyze_returns_empty_list_when_no_risk(
 ) -> None:
     llm_client.generate.return_value = "[]"
 
-    analyzer = LLMRiskAnalyzer(llm_client)
+    analyzer = LLMRiskAnalyzer(
+        llm_client,
+        DeterministicRiskGroundingValidator(),
+    )
 
     signals = analyzer.analyze(
         project_id="PROJ-001",
@@ -116,7 +130,10 @@ def test_analyze_rejects_invalid_json(
 ) -> None:
     llm_client.generate.return_value = "This is not JSON."
 
-    analyzer = LLMRiskAnalyzer(llm_client)
+    analyzer = LLMRiskAnalyzer(
+        llm_client,
+        DeterministicRiskGroundingValidator(),
+    )
 
     with pytest.raises(
         ValueError,
@@ -140,7 +157,10 @@ def test_analyze_rejects_non_array_response(
     }
     """
 
-    analyzer = LLMRiskAnalyzer(llm_client)
+    analyzer = LLMRiskAnalyzer(
+        llm_client,
+        DeterministicRiskGroundingValidator(),
+    )
 
     with pytest.raises(
         ValueError,
@@ -158,30 +178,34 @@ def test_analyze_rejects_unknown_evidence_reference(
     evidence: list[Evidence],
     query: str,
 ) -> None:
-    llm_client.generate.return_value = """
-    [
-        {
-            "risk_type": "blocker",
-            "severity": "high",
-            "confidence": 0.95,
-            "evidence_source_id": "EVT-UNKNOWN",
-            "evidence_quote": "The project is blocked.",
-            "rationale": "The project is blocked."
-        }
-    ]
-    """
 
-    analyzer = LLMRiskAnalyzer(llm_client)
 
-    with pytest.raises(
-        ValueError,
-        match="LLM referenced evidence that was not provided",
-    ):
-        analyzer.analyze(
-            project_id="PROJ-001",
-            query=query,
-            evidence=evidence,
-        )
+    
+    llm_client.generate.return_value = json.dumps(
+        [
+                {
+                    "risk_type": "blocker",
+                    "severity": "high",
+                    "confidence": 0.95,
+                    "evidence_source_id": "EVT-UNKNOWN",
+                    "evidence_quote": "The project is blocked.",
+                    "rationale": "The project is blocked."
+                }
+            ]
+    )
+
+    analyzer = LLMRiskAnalyzer(
+        llm_client,
+        DeterministicRiskGroundingValidator(),
+    )
+
+    signals = analyzer.analyze(
+        project_id="PROJ-001",
+        query=query,
+        evidence=evidence,
+    )
+
+    assert signals == []
 
 
 def test_analyze_rejects_invalid_confidence(
@@ -189,33 +213,45 @@ def test_analyze_rejects_invalid_confidence(
     evidence: list[Evidence],
     query: str,
 ) -> None:
-    llm_client.generate.return_value = """
-    [
-        {
-            "risk_type": "blocker",
-            "severity": "high",
-            "confidence": 1.5,
-            "evidence_source_id": "EVT-JIRA-001",
-            "rationale": "The project is blocked."
-        }
-    ]
-    """
+    
+    llm_client.generate.return_value = json.dumps(
+        [
+                {
+                    "risk_type": "blocker",
+                    "severity": "high",
+                    "confidence": 1.5,
+                    "evidence_source_id": "EVT-JIRA-001",
+                    "evidence_quote": (
+                        "Payment API integration is blocked because external API "
+                        "credentials are missing."
+                    ),
+                    "rationale": "The project is blocked."
+                }
+            ]
+    )
 
-    analyzer = LLMRiskAnalyzer(llm_client)
+    analyzer = LLMRiskAnalyzer(
+        llm_client,
+        DeterministicRiskGroundingValidator(),
+    )
 
-    with pytest.raises(ValueError):
-        analyzer.analyze(
-            project_id="PROJ-001",
-            query=query,
-            evidence=evidence,
-        )
+    signals = analyzer.analyze(
+        project_id="PROJ-001",
+        query=query,
+        evidence=evidence,
+    )
+
+    assert signals == []
 
 
 def test_analyze_returns_empty_for_empty_evidence(
     llm_client: Mock,
     query: str,
 ) -> None:
-    analyzer = LLMRiskAnalyzer(llm_client)
+    analyzer = LLMRiskAnalyzer(
+        llm_client,
+        DeterministicRiskGroundingValidator(),
+    )
 
     signals = analyzer.analyze(
         project_id="PROJ-001",
@@ -232,7 +268,10 @@ def test_analyze_rejects_empty_project_id(
     evidence: list[Evidence],
     query: str,
 ) -> None:
-    analyzer = LLMRiskAnalyzer(llm_client)
+    analyzer = LLMRiskAnalyzer(
+        llm_client,
+        DeterministicRiskGroundingValidator(),
+    )
 
     with pytest.raises(
         ValueError,
@@ -249,7 +288,10 @@ def test_analyze_rejects_empty_query(
     llm_client: Mock,
     evidence: list[Evidence],
 ) -> None:
-    analyzer = LLMRiskAnalyzer(llm_client)
+    analyzer = LLMRiskAnalyzer(
+        llm_client,
+        DeterministicRiskGroundingValidator(),
+    )
 
     with pytest.raises(
         ValueError,
@@ -261,128 +303,129 @@ def test_analyze_rejects_empty_query(
             evidence=evidence,
         )
 
-def test_analyze_scores_only_primary_risk_after_consolidation() -> None:
-        risk_analyzer = Mock(spec=RiskAnalyzer)
-        health_scorer = Mock(spec=HealthScorer)
-        risk_consolidator = RiskConsolidator()
 
-        evidence = Evidence(
+def test_analyze_scores_only_primary_risk_after_consolidation() -> None:
+    risk_analyzer = Mock(spec=RiskAnalyzer)
+    health_scorer = Mock(spec=HealthScorer)
+    risk_consolidator = RiskConsolidator()
+
+    evidence = Evidence(
+        event_id="EVT-001",
+        source_type=SourceType.JIRA,
+        source_id="EVT-001",
+        content="Payment API is blocked by missing credentials.",
+        occurred_at=datetime(
+            2026,
+            9,
+            1,
+            tzinfo=UTC,
+        ),
+    )
+
+    blocker = RiskSignal(
+        signal_id="SIG-001",
+        project_id="PROJ-001",
+        event_id="EVT-001",
+        risk_type=RiskType.BLOCKER,
+        severity=RiskSeverity.HIGH,
+        confidence=0.9,
+        evidence=evidence,
+        evidence_quote=evidence.content,
+        rationale="Payment API is blocked.",
+    )
+
+    dependency = RiskSignal(
+        signal_id="SIG-002",
+        project_id="PROJ-001",
+        event_id="EVT-001",
+        risk_type=RiskType.DEPENDENCY,
+        severity=RiskSeverity.HIGH,
+        confidence=0.9,
+        evidence=evidence,
+        evidence_quote=evidence.content,
+        rationale="External credentials are missing.",
+    )
+
+    delay = RiskSignal(
+        signal_id="SIG-003",
+        project_id="PROJ-001",
+        event_id="EVT-001",
+        risk_type=RiskType.DELAY,
+        severity=RiskSeverity.HIGH,
+        confidence=0.9,
+        evidence=evidence,
+        evidence_quote=evidence.content,
+        rationale="Release may be delayed.",
+    )
+
+    risk_analyzer.analyze.return_value = [
+        blocker,
+        dependency,
+        delay,
+    ]
+
+    expected_health_score = HealthScore(
+        project_id="PROJ-001",
+        score=80.0,
+        status=HealthStatus.AT_RISK,
+        contributing_risks=["SIG-001"],
+        calculated_at=datetime(
+            2026,
+            9,
+            1,
+            tzinfo=UTC,
+        ),
+        rationale="Test health score.",
+    )
+
+    health_scorer.calculate.return_value = expected_health_score
+
+    service = ProjectHealthService(
+        risk_analyzer=risk_analyzer,
+        health_scorer=health_scorer,
+        risk_consolidator=risk_consolidator,
+    )
+
+    retrieval_result = RetrievalResult(
+        chunk=DocumentChunk(
+            chunk_id="CHUNK-001",
+            project_id="PROJ-001",
             event_id="EVT-001",
             source_type=SourceType.JIRA,
             source_id="EVT-001",
-            content="Payment API is blocked by missing credentials.",
-            occurred_at=datetime(
-                2026,
-                9,
-                1,
-                tzinfo=UTC,
-            ),
-        )
+            content=evidence.content,
+            chunk_index=0,
+            occurred_at=evidence.occurred_at,
+        ),
+        score=0.9,
+    )
 
-        blocker = RiskSignal(
-            signal_id="SIG-001",
-            project_id="PROJ-001",
-            event_id="EVT-001",
-            risk_type=RiskType.BLOCKER,
-            severity=RiskSeverity.HIGH,
-            confidence=0.9,
-            evidence=evidence,
-            evidence_quote=evidence.content,
-            rationale="Payment API is blocked.",
-        )
+    result = service.analyze(
+        project_id="PROJ-001",
+        query="What are the payment API risks?",
+        retrieval_results=[retrieval_result],
+    )
 
-        dependency = RiskSignal(
-            signal_id="SIG-002",
-            project_id="PROJ-001",
-            event_id="EVT-001",
-            risk_type=RiskType.DEPENDENCY,
-            severity=RiskSeverity.HIGH,
-            confidence=0.9,
-            evidence=evidence,
-            evidence_quote=evidence.content,
-            rationale="External credentials are missing.",
-        )
+    assert result == expected_health_score
 
-        delay = RiskSignal(
-            signal_id="SIG-003",
-            project_id="PROJ-001",
-            event_id="EVT-001",
-            risk_type=RiskType.DELAY,
-            severity=RiskSeverity.HIGH,
-            confidence=0.9,
-            evidence=evidence,
-            evidence_quote=evidence.content,
-            rationale="Release may be delayed.",
-        )
+    health_scorer.calculate.assert_called_once()
 
-        risk_analyzer.analyze.return_value = [
-            blocker,
-            dependency,
-            delay,
-        ]
+    scored_risks = health_scorer.calculate.call_args.kwargs["risk_signals"]
 
-        expected_health_score = HealthScore(
-            project_id="PROJ-001",
-            score=80.0,
-            status=HealthStatus.AT_RISK,
-            contributing_risks=["SIG-001"],
-            calculated_at=datetime(
-                2026,
-                9,
-                1,
-                tzinfo=UTC,
-            ),
-            rationale="Test health score.",
-        )
+    assert len(scored_risks) == 2
 
-        health_scorer.calculate.return_value = expected_health_score
+    assert [
+        signal.risk_type
+        for signal in scored_risks
+    ] == [
+        RiskType.BLOCKER,
+        RiskType.DELAY,
+    ]
 
-        service = ProjectHealthService(
-            risk_analyzer=risk_analyzer,
-            health_scorer=health_scorer,
-            risk_consolidator=risk_consolidator,
-        )
-
-        retrieval_result = RetrievalResult(
-            chunk=DocumentChunk(
-                chunk_id="CHUNK-001",
-                project_id="PROJ-001",
-                event_id="EVT-001",
-                source_type=SourceType.JIRA,
-                source_id="EVT-001",
-                content=evidence.content,
-                chunk_index=0,
-                occurred_at=evidence.occurred_at,
-            ),
-            score=0.9,
-        )
-
-        result = service.analyze(
-            project_id="PROJ-001",
-            query="What are the payment API risks?",
-            retrieval_results=[retrieval_result],
-        )
-
-        assert result == expected_health_score
-
-        health_scorer.calculate.assert_called_once()
-
-        scored_risks = health_scorer.calculate.call_args.kwargs["risk_signals"]
-
-        assert len(scored_risks) == 2
-
-        assert [
-            signal.risk_type
-            for signal in scored_risks
-        ] == [
-            RiskType.BLOCKER,
-            RiskType.DELAY,
-        ]
-
-        assert [
-            signal.signal_id
-            for signal in scored_risks
-        ] == [
-            "SIG-001",
-            "SIG-003",
-        ]
+    assert [
+        signal.signal_id
+        for signal in scored_risks
+    ] == [
+        "SIG-001",
+        "SIG-003",
+    ]

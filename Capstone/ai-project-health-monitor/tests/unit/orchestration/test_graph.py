@@ -2,29 +2,26 @@ from unittest.mock import Mock
 
 from ai_project_health_monitor.analysis.health_alert_evaluator import HealthAlertEvaluator
 from ai_project_health_monitor.analysis.health_scorer import HealthScorer
-from ai_project_health_monitor.analysis.llm_risk_analyzer import LLMRiskAnalyzer
-from ai_project_health_monitor.analysis.risk_consolidator import RiskConsolidator
-from ai_project_health_monitor.notifications.alert_escalator import AlertEscalator
-from ai_project_health_monitor.notifications.alert_escalator_notifier import AlertEscalatorNotifier
-from ai_project_health_monitor.notifications.health_summary_notifier import HealthSummaryNotifier
-from ai_project_health_monitor.orchestration.graph import (
-    build_project_health_graph,
-)
-from ai_project_health_monitor.rag.retrieval import RetrievalService
 from ai_project_health_monitor.analysis.health_summary_generator import (
     HealthSummaryGenerator,
 )
+from ai_project_health_monitor.analysis.llm_risk_analyzer import LLMRiskAnalyzer
+from ai_project_health_monitor.analysis.risk_consolidator import RiskConsolidator
 from ai_project_health_monitor.domain.models.health_alert import HealthAlert
 from ai_project_health_monitor.domain.models.health_score import HealthStatus
+from ai_project_health_monitor.notifications.alert_deduplicator import (
+    AlertDeduplicator,
+)
+from ai_project_health_monitor.notifications.alert_escalator import AlertEscalator
+from ai_project_health_monitor.notifications.alert_escalator_notifier import AlertEscalatorNotifier
+from ai_project_health_monitor.notifications.alert_notifier import AlertNotifier
+from ai_project_health_monitor.notifications.health_summary_notifier import HealthSummaryNotifier
 from ai_project_health_monitor.orchestration.graph import (
     build_project_health_graph,
     route_after_alert_evaluation,
 )
 from ai_project_health_monitor.orchestration.state import ProjectHealthState
-from ai_project_health_monitor.notifications.alert_notifier import AlertNotifier
-from ai_project_health_monitor.notifications.alert_deduplicator import (
-    AlertDeduplicator,
-)
+from ai_project_health_monitor.rag.retrieval import RetrievalService
 
 
 def test_project_health_graph_can_be_compiled() -> None:

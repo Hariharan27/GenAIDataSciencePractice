@@ -240,7 +240,8 @@ def test_calculate_includes_risk_details_in_rationale(
     assert "high" in result.rationale
     assert "80.0/100" in result.rationale
 
-def test_calculate_keeps_exactly_seventy_healthy(
+
+def test_calculate_classifies_exactly_thirty_critical(
     scorer: DeterministicHealthScorer,
     evidence: Evidence,
 ) -> None:
@@ -279,6 +280,7 @@ def test_calculate_keeps_exactly_seventy_healthy(
     assert result.score == 30.0
     assert result.status == HealthStatus.CRITICAL
 
+
 def test_calculate_keeps_exactly_seventy_healthy(
     scorer: DeterministicHealthScorer,
     evidence: Evidence,
@@ -305,6 +307,7 @@ def test_calculate_keeps_exactly_seventy_healthy(
 
     assert result.score == 70.0
     assert result.status == HealthStatus.HEALTHY
+
 
 def test_calculate_keeps_exactly_forty_at_risk(
     scorer: DeterministicHealthScorer,

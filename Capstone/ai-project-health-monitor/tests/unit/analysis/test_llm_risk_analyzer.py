@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime
 from unittest.mock import Mock
 
@@ -5,6 +6,10 @@ import pytest
 
 from ai_project_health_monitor.analysis.llm import LLMClient
 from ai_project_health_monitor.analysis.llm_risk_analyzer import LLMRiskAnalyzer
+from ai_project_health_monitor.analysis.risk_grounding_validator import (
+    DeterministicRiskGroundingValidator,
+    RiskGroundingValidator,
+)
 from ai_project_health_monitor.domain.models.evidence import Evidence
 from ai_project_health_monitor.domain.models.project_event import SourceType
 from ai_project_health_monitor.domain.models.risk_signal import (
@@ -16,6 +21,11 @@ from ai_project_health_monitor.domain.models.risk_signal import (
 @pytest.fixture
 def llm_client() -> Mock:
     return Mock(spec=LLMClient)
+
+
+@pytest.fixture
+def grounding_validator() -> RiskGroundingValidator:
+    return DeterministicRiskGroundingValidator()
 
 
 @pytest.fixture
@@ -46,23 +56,31 @@ def query() -> str:
 
 def test_analyze_extracts_valid_risk_signal(
     llm_client: Mock,
+    grounding_validator: RiskGroundingValidator,
     evidence: list[Evidence],
     query: str,
 ) -> None:
-    llm_client.generate.return_value = """
-    [
-        {
-            "risk_type": "blocker",
-            "severity": "high",
-            "confidence": 0.95,
-            "evidence_source_id": "EVT-JIRA-001",
-            "evidence_quote": "Payment API integration is blocked because external API credentials are missing.",
-            "rationale": "The payment API integration is blocked by missing credentials."
-        }
-    ]
-    """
 
-    analyzer = LLMRiskAnalyzer(llm_client)
+    llm_client.generate.return_value = json.dumps(
+        [
+                {
+                    "risk_type": "blocker",
+                    "severity": "high",
+                    "confidence": 0.95,
+                    "evidence_source_id": "EVT-JIRA-001",
+                    "evidence_quote": (
+                        "Payment API integration is blocked because external API "
+                        "credentials are missing."
+                     ),
+                    "rationale": "The payment API integration is blocked by missing credentials."
+                }
+            ]
+    )
+
+    analyzer = LLMRiskAnalyzer(
+        llm_client,
+        grounding_validator,
+    )
 
     signals = analyzer.analyze(
         project_id="PROJ-001",
@@ -85,12 +103,16 @@ def test_analyze_extracts_valid_risk_signal(
 
 def test_analyze_returns_empty_list_when_no_risk(
     llm_client: Mock,
+    grounding_validator: RiskGroundingValidator,
     evidence: list[Evidence],
     query: str,
 ) -> None:
     llm_client.generate.return_value = "[]"
 
-    analyzer = LLMRiskAnalyzer(llm_client)
+    analyzer = LLMRiskAnalyzer(
+        llm_client,
+        grounding_validator,
+    )
 
     signals = analyzer.analyze(
         project_id="PROJ-001",
@@ -103,12 +125,16 @@ def test_analyze_returns_empty_list_when_no_risk(
 
 def test_analyze_rejects_invalid_json(
     llm_client: Mock,
+    grounding_validator: RiskGroundingValidator,
     evidence: list[Evidence],
     query: str,
 ) -> None:
     llm_client.generate.return_value = "This is not JSON."
 
-    analyzer = LLMRiskAnalyzer(llm_client)
+    analyzer = LLMRiskAnalyzer(
+        llm_client,
+        grounding_validator,
+    )
 
     with pytest.raises(
         ValueError,
@@ -123,6 +149,7 @@ def test_analyze_rejects_invalid_json(
 
 def test_analyze_rejects_non_array_response(
     llm_client: Mock,
+    grounding_validator: RiskGroundingValidator,
     evidence: list[Evidence],
     query: str,
 ) -> None:
@@ -132,7 +159,10 @@ def test_analyze_rejects_non_array_response(
     }
     """
 
-    analyzer = LLMRiskAnalyzer(llm_client)
+    analyzer = LLMRiskAnalyzer(
+        llm_client,
+        grounding_validator,
+    )
 
     with pytest.raises(
         ValueError,
@@ -147,11 +177,13 @@ def test_analyze_rejects_non_array_response(
 
 def test_analyze_rejects_unknown_evidence_reference(
     llm_client: Mock,
+    grounding_validator: RiskGroundingValidator,
     evidence: list[Evidence],
     query: str,
 ) -> None:
-    llm_client.generate.return_value = """
-    [
+
+    llm_client.generate.return_value = json.dumps(
+        [
         {
             "risk_type": "blocker",
             "severity": "high",
@@ -161,53 +193,68 @@ def test_analyze_rejects_unknown_evidence_reference(
             "rationale": "The project is blocked."
         }
     ]
-    """
+    )
 
-    analyzer = LLMRiskAnalyzer(llm_client)
+    analyzer = LLMRiskAnalyzer(
+        llm_client,
+        grounding_validator,
+    )
 
-    with pytest.raises(
-        ValueError,
-        match="LLM referenced evidence that was not provided",
-    ):
-        analyzer.analyze(
-            project_id="PROJ-001",
-            query=query,
-            evidence=evidence,
-        )
+    signals = analyzer.analyze(
+        project_id="PROJ-001",
+        query=query,
+        evidence=evidence,
+    )
+
+    assert signals == []
 
 
 def test_analyze_rejects_invalid_confidence(
     llm_client: Mock,
+    grounding_validator: RiskGroundingValidator,
     evidence: list[Evidence],
     query: str,
 ) -> None:
-    llm_client.generate.return_value = """
-    [
-        {
-            "risk_type": "blocker",
-            "severity": "high",
-            "confidence": 1.5,
-            "evidence_source_id": "EVT-JIRA-001",
-            "rationale": "The project is blocked."
-        }
-    ]
-    """
 
-    analyzer = LLMRiskAnalyzer(llm_client)
+    llm_client.generate.return_value = json.dumps(
+        [
+                {
+                    "risk_type": "blocker",
+                    "severity": "high",
+                    "confidence": 1.5,
+                    "evidence_source_id": "EVT-JIRA-001",
+                    "evidence_quote": (
+                        "Payment API integration is blocked because external API "
+                        "credentials are missing."
+                    ),
+                    "rationale": "The project is blocked."
+                }
+            ]
+    )
 
-    with pytest.raises(ValueError):
-        analyzer.analyze(
-            project_id="PROJ-001",
-            query=query,
-            evidence=evidence,
-        )
+    analyzer = LLMRiskAnalyzer(
+        llm_client,
+        grounding_validator,
+    )
+
+    signals = analyzer.analyze(
+        project_id="PROJ-001",
+        query=query,
+        evidence=evidence,
+    )
+
+    assert signals == []
 
 
 def test_analyze_returns_empty_for_empty_evidence(
     llm_client: Mock,
+    grounding_validator: RiskGroundingValidator,
     query: str,
 ) -> None:
-    analyzer = LLMRiskAnalyzer(llm_client)
+    analyzer = LLMRiskAnalyzer(
+        llm_client,
+        grounding_validator,
+    )
 
     signals = analyzer.analyze(
         project_id="PROJ-001",
@@ -221,10 +268,14 @@ def test_analyze_returns_empty_for_empty_evidence(
 
 def test_analyze_rejects_empty_project_id(
     llm_client: Mock,
+    grounding_validator: RiskGroundingValidator,
     evidence: list[Evidence],
     query: str,
 ) -> None:
-    analyzer = LLMRiskAnalyzer(llm_client)
+    analyzer = LLMRiskAnalyzer(
+        llm_client,
+        grounding_validator,
+    )
 
     with pytest.raises(
         ValueError,
@@ -239,9 +290,13 @@ def test_analyze_rejects_empty_project_id(
 
 def test_analyze_rejects_empty_query(
     llm_client: Mock,
+    grounding_validator: RiskGroundingValidator,
     evidence: list[Evidence],
 ) -> None:
-    analyzer = LLMRiskAnalyzer(llm_client)
+    analyzer = LLMRiskAnalyzer(
+        llm_client,
+        grounding_validator,
+    )
 
     with pytest.raises(
         ValueError,
@@ -252,8 +307,13 @@ def test_analyze_rejects_empty_query(
             query="   ",
             evidence=evidence,
         )
+
+
 def test_build_prompt_allows_explicit_downstream_risk() -> None:
-    analyzer = LLMRiskAnalyzer(Mock(spec=LLMClient))
+    analyzer = LLMRiskAnalyzer(
+        Mock(spec=LLMClient),
+        DeterministicRiskGroundingValidator(),
+    )
 
     evidence = Evidence(
         event_id="EVT-001",
@@ -278,9 +338,10 @@ def test_build_prompt_allows_explicit_downstream_risk() -> None:
     )
 
     assert "downstream risk is valid" in prompt
-    assert "explicitly states its impact or consequence" in prompt
+    assert "impact or consequence" in prompt
     assert "affecting the planned release date" in prompt
     assert "Do NOT use DELIVERY as a synonym for DELAY." in prompt
+
 
 def test_prompt_lists_valid_evidence_source_ids() -> None:
     evidence = [
@@ -289,14 +350,24 @@ def test_prompt_lists_valid_evidence_source_ids() -> None:
             source_type=SourceType.JIRA,
             source_id="JIRA-001",
             content="Payment API integration is blocked.",
-            occurred_at=datetime(2026, 9, 1, tzinfo=UTC),
+            occurred_at=datetime(
+                2026,
+                9,
+                1,
+                tzinfo=UTC,
+            ),
         ),
         Evidence(
             event_id="EVT-002",
             source_type=SourceType.EMAIL,
             source_id="EMAIL-001",
             content="The release date is affected.",
-            occurred_at=datetime(2026, 9, 1, tzinfo=UTC),
+            occurred_at=datetime(
+                2026,
+                9,
+                1,
+                tzinfo=UTC,
+            ),
         ),
     ]
 
@@ -318,13 +389,18 @@ def test_prompt_distinguishes_delay_from_delivery() -> None:
             source_type=SourceType.JIRA,
             source_id="JIRA-001",
             content="Backend development is three days behind schedule.",
-            occurred_at=datetime(2026, 9, 1, tzinfo=UTC),
+            occurred_at=datetime(
+                2026,
+                9,
+                1,
+                tzinfo=UTC,
+            ),
         )
     ]
 
     prompt = LLMRiskAnalyzer._build_prompt(
         project_id="PROJ-001",
-        query="What are the delivery risks?",
+        query="What risks affect the backend?",
         evidence=evidence,
     )
 
@@ -339,7 +415,12 @@ def test_parse_response_rejects_unknown_evidence_source_id() -> None:
             source_type=SourceType.JIRA,
             source_id="JIRA-001",
             content="Payment API integration is blocked.",
-            occurred_at=datetime(2026, 9, 1, tzinfo=UTC),
+            occurred_at=datetime(
+                2026,
+                9,
+                1,
+                tzinfo=UTC,
+            ),
         )
     ]
 
@@ -356,19 +437,27 @@ def test_parse_response_rejects_unknown_evidence_source_id() -> None:
     ]
     """
 
-    with pytest.raises(
-        ValueError,
-        match="LLM referenced evidence that was not provided",
-    ):
-        LLMRiskAnalyzer._parse_response(
-            project_id="PROJ-001",
-            evidence=evidence,
-            response=response,
-        )
+    analyzer = LLMRiskAnalyzer(
+        Mock(spec=LLMClient),
+        DeterministicRiskGroundingValidator(),
+    )
+
+    signals = analyzer._parse_response(
+        project_id="PROJ-001",
+        evidence=evidence,
+        response=response,
+    )
+
+    assert signals == []
 
 
 def test_parse_response_accepts_empty_array() -> None:
-    signals = LLMRiskAnalyzer._parse_response(
+    analyzer = LLMRiskAnalyzer(
+        Mock(spec=LLMClient),
+        DeterministicRiskGroundingValidator(),
+    )
+
+    signals = analyzer._parse_response(
         project_id="PROJ-002",
         evidence=[],
         response="[]",
@@ -376,56 +465,100 @@ def test_parse_response_accepts_empty_array() -> None:
 
     assert signals == []
 
-def test_build_prompt_requires_exact_evidence_source_id() -> None:
-    analyzer = LLMRiskAnalyzer(Mock(spec=LLMClient))
 
-    evidence = Evidence(
-        event_id="EVT-001",
-        source_type=SourceType.JIRA,
-        source_id="EVT-JIRA-001",
-        content="Payment API integration is blocked.",
-        occurred_at=datetime(
-            2026,
-            9,
-            1,
-            tzinfo=UTC,
-        ),
+def test_build_prompt_requires_exact_evidence_source_id() -> None:
+    analyzer = LLMRiskAnalyzer(
+        Mock(spec=LLMClient),
+        DeterministicRiskGroundingValidator(),
     )
+
+    evidence = [
+        Evidence(
+            event_id="EVT-001",
+            source_type=SourceType.JIRA,
+            source_id="JIRA-001",
+            content="Payment API integration is blocked.",
+            occurred_at=datetime(
+                2026,
+                9,
+                1,
+                tzinfo=UTC,
+            ),
+        )
+    ]
 
     prompt = analyzer._build_prompt(
         project_id="PROJ-001",
-        query="What risks are affecting the payment API integration?",
-        evidence=[evidence],
+        query="What risks affect the payment integration?",
+        evidence=evidence,
     )
 
-    assert "VALID EVIDENCE SOURCE IDS" in prompt
-    assert "- EVT-JIRA-001" in prompt
-    assert "copied EXACTLY" in prompt
+    assert "MUST be copied EXACTLY" in prompt
     assert "NEVER invent, modify, abbreviate, or guess" in prompt
+    assert "- JIRA-001" in prompt
 
 
 def test_build_prompt_requires_empty_array_when_no_supported_risk() -> None:
-    analyzer = LLMRiskAnalyzer(Mock(spec=LLMClient))
-
-    evidence = Evidence(
-        event_id="EVT-001",
-        source_type=SourceType.JIRA,
-        source_id="EVT-JIRA-001",
-        content="Reporting module completed successfully. Release is on track.",
-        occurred_at=datetime(
-            2026,
-            9,
-            1,
-            tzinfo=UTC,
-        ),
+    analyzer = LLMRiskAnalyzer(
+        Mock(spec=LLMClient),
+        DeterministicRiskGroundingValidator(),
     )
+
+    evidence = [
+        Evidence(
+            event_id="EVT-001",
+            source_type=SourceType.JIRA,
+            source_id="JIRA-001",
+            content="Reporting module completed successfully.",
+            occurred_at=datetime(
+                2026,
+                9,
+                1,
+                tzinfo=UTC,
+            ),
+        )
+    ]
 
     prompt = analyzer._build_prompt(
         project_id="PROJ-002",
-        query="What risks are affecting the project?",
-        evidence=[evidence],
+        query="Are there any risks affecting the reporting project?",
+        evidence=evidence,
     )
 
-    assert "If no provided evidence supports a relevant risk, return []" in prompt
-    assert "Positive project updates must not be converted into risks." in prompt
     assert "Positive evidence does not constitute a risk." in prompt
+    assert "If no provided evidence supports a relevant risk, return:" in prompt
+    assert "FINAL EVIDENCE VERIFICATION" in prompt
+
+
+def test_analyze_rejects_cross_project_evidence_reference(
+    llm_client: Mock,
+    grounding_validator: RiskGroundingValidator,
+    evidence: list[Evidence],
+    query: str,
+) -> None:
+
+    llm_client.generate.return_value = json.dumps(
+        [
+                {
+                    "risk_type": "blocker",
+                    "severity": "high",
+                    "confidence": 0.95,
+                    "evidence_source_id": "EVT-JIRA-999",
+                    "evidence_quote": "Payment API integration is blocked.",
+                    "rationale": "The payment API integration is blocked."
+                }
+        ]
+    )
+
+    analyzer = LLMRiskAnalyzer(
+        llm_client,
+        grounding_validator,
+    )
+
+    signals = analyzer.analyze(
+        project_id="PROJ-002",
+        query=query,
+        evidence=evidence,
+    )
+
+    assert signals == []

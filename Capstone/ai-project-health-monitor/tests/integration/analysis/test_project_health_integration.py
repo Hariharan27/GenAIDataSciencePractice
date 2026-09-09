@@ -9,6 +9,9 @@ from ai_project_health_monitor.analysis.llm_factory import LLMClientFactory
 from ai_project_health_monitor.analysis.llm_risk_analyzer import LLMRiskAnalyzer
 from ai_project_health_monitor.analysis.project_health import ProjectHealthService
 from ai_project_health_monitor.analysis.risk_consolidator import RiskConsolidator
+from ai_project_health_monitor.analysis.risk_grounding_validator import (
+    DeterministicRiskGroundingValidator,
+)
 from ai_project_health_monitor.core.config import get_settings
 from ai_project_health_monitor.ingestion.connectors.synthetic_document import (
     SyntheticDocumentConnector,
@@ -90,6 +93,7 @@ def test_project_health_analysis_end_to_end() -> None:
 
     risk_analyzer = LLMRiskAnalyzer(
         llm_client=llm_client,
+        grounding_validator=DeterministicRiskGroundingValidator(),
     )
 
     health_scorer = DeterministicHealthScorer()

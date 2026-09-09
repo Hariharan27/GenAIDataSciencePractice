@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
 
 from ai_project_health_monitor.domain.models.health_score import HealthScore
-from ai_project_health_monitor.domain.models.risk_signal import RiskSignal
 from ai_project_health_monitor.domain.models.project_health_summary import (
     ProjectHealthSummary,
 )
+from ai_project_health_monitor.domain.models.risk_signal import RiskSignal
 
 
 class HealthSummaryGenerator(ABC):

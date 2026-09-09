@@ -7,7 +7,6 @@ from ai_project_health_monitor.notifications.health_summary_delivery import (
     HealthSummaryDelivery,
 )
 
-
 logger = logging.getLogger(__name__)
 
 

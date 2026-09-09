@@ -4,10 +4,13 @@ from ai_project_health_monitor.domain.models.project_event import (
     ProjectEvent,
     SourceType,
 )
+from ai_project_health_monitor.ingestion.connectors.base import (
+    ProjectSourceConnector,
+)
 from ai_project_health_monitor.ingestion.service import IngestionService
 
 
-class StubConnector:
+class StubConnector(ProjectSourceConnector):
     """Test connector returning predefined project events."""
 
     def __init__(self, events: list[ProjectEvent]) -> None:

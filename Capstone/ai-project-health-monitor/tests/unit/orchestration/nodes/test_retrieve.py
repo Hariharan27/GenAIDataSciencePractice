@@ -3,20 +3,22 @@ from unittest.mock import Mock
 from ai_project_health_monitor.orchestration.nodes.retrieve import RetrieveNode
 from ai_project_health_monitor.orchestration.state import ProjectHealthState
 from ai_project_health_monitor.rag.models.retrieval import RetrievalResult
-from ai_project_health_monitor.rag.retrieval import RetrievalService
+from ai_project_health_monitor.rag.project_health_retrieval import (
+    ProjectHealthEvidenceRetriever,
+)
 
 
 def test_retrieve_node_returns_retrieval_results() -> None:
-    retrieval_service = Mock(spec=RetrievalService)
-
+    evidence_retriever = Mock(spec=ProjectHealthEvidenceRetriever)
     expected_results = [
         Mock(spec=RetrievalResult),
         Mock(spec=RetrievalResult),
     ]
+    evidence_retriever.retrieve.return_value = expected_results
 
-    retrieval_service.retrieve.return_value = expected_results
-
-    node = RetrieveNode(retrieval_service=retrieval_service)
+    node = RetrieveNode(
+        evidence_retriever=evidence_retriever,
+    )
 
     state = ProjectHealthState(
         project_id="PROJ-001",
@@ -27,8 +29,6 @@ def test_retrieve_node_returns_retrieval_results() -> None:
 
     assert result["retrieval_results"] == expected_results
 
-    retrieval_service.retrieve.assert_called_once_with(
-        query="What risks are affecting the payment API integration?",
+    evidence_retriever.retrieve.assert_called_once_with(
         project_id="PROJ-001",
-        limit=5,
     )

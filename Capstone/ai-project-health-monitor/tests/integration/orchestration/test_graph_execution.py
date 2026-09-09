@@ -41,11 +41,13 @@ from ai_project_health_monitor.orchestration.graph import (
 )
 from ai_project_health_monitor.rag.models.chunk import DocumentChunk
 from ai_project_health_monitor.rag.models.retrieval import RetrievalResult
-from ai_project_health_monitor.rag.retrieval import RetrievalService
+from ai_project_health_monitor.rag.project_health_retrieval import (
+    ProjectHealthEvidenceRetriever,
+)
 
 
 def test_project_health_graph_executes_end_to_end() -> None:
-    retrieval_service = Mock(spec=RetrievalService)
+    retrieval_service = Mock(spec=ProjectHealthEvidenceRetriever)
     risk_analyzer = Mock(spec=LLMRiskAnalyzer)
     risk_consolidator = Mock(spec=RiskConsolidator)
     health_scorer = Mock(spec=HealthScorer)
@@ -159,7 +161,7 @@ def test_project_health_graph_executes_end_to_end() -> None:
     alert_evaluator.evaluate.return_value = alert
 
     graph = build_project_health_graph(
-        retrieval_service=retrieval_service,
+        evidence_retriever=retrieval_service,
         risk_analyzer=risk_analyzer,
         risk_consolidator=risk_consolidator,
         health_scorer=health_scorer,
@@ -209,9 +211,7 @@ def test_project_health_graph_executes_end_to_end() -> None:
     assert result["alert"] == alert
 
     retrieval_service.retrieve.assert_called_once_with(
-        query="What risks are affecting the project?",
         project_id="PROJ-001",
-        limit=5,
     )
 
     risk_analyzer.analyze.assert_called_once_with(
@@ -246,7 +246,7 @@ def test_project_health_graph_executes_end_to_end() -> None:
 
 
 def test_project_health_graph_scores_only_primary_risks() -> None:
-    retrieval_service = Mock(spec=RetrievalService)
+    retrieval_service = Mock(spec=ProjectHealthEvidenceRetriever)
     risk_analyzer = Mock(spec=LLMRiskAnalyzer)
     risk_consolidator = RiskConsolidator()
     health_scorer = DeterministicHealthScorer()
@@ -326,7 +326,7 @@ def test_project_health_graph_scores_only_primary_risks() -> None:
     alert_evaluator.evaluate.return_value = alert
 
     graph = build_project_health_graph(
-        retrieval_service=retrieval_service,
+        evidence_retriever=retrieval_service,
         risk_analyzer=risk_analyzer,
         risk_consolidator=risk_consolidator,
         health_scorer=health_scorer,
@@ -372,7 +372,7 @@ def test_project_health_graph_scores_only_primary_risks() -> None:
 
 
 def test_project_health_graph_triggers_alert_for_critical_health() -> None:
-    retrieval_service = Mock(spec=RetrievalService)
+    retrieval_service = Mock(spec=ProjectHealthEvidenceRetriever)
     risk_analyzer = Mock(spec=LLMRiskAnalyzer)
     risk_consolidator = RiskConsolidator()
     health_scorer = DeterministicHealthScorer()
@@ -464,7 +464,7 @@ def test_project_health_graph_triggers_alert_for_critical_health() -> None:
     alert_evaluator.evaluate.return_value = alert
 
     graph = build_project_health_graph(
-        retrieval_service=retrieval_service,
+        evidence_retriever=retrieval_service,
         risk_analyzer=risk_analyzer,
         risk_consolidator=risk_consolidator,
         health_scorer=health_scorer,

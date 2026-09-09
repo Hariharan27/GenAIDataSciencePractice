@@ -67,6 +67,9 @@ from ai_project_health_monitor.rag.retrieval import RetrievalService
 from ai_project_health_monitor.rag.vector_store.qdrant import (
     QdrantVectorStore,
 )
+from ai_project_health_monitor.rag.project_health_retrieval import (
+    ProjectHealthEvidenceRetriever,
+)
 
 
 class ApplicationContainer:
@@ -89,6 +92,10 @@ class ApplicationContainer:
         self.retrieval_service = RetrievalService(
             embedding_model=self.embedding_model,
             vector_store=self.vector_store,
+        )
+
+        self.project_health_evidence_retriever = ProjectHealthEvidenceRetriever(
+            retrieval_service=self.retrieval_service,
         )
 
         self.llm_client = LLMClientFactory.create(settings)
@@ -118,7 +125,7 @@ class ApplicationContainer:
         )
 
         self.graph = build_project_health_graph(
-            retrieval_service=self.retrieval_service,
+            evidence_retriever=self.project_health_evidence_retriever,
             risk_analyzer=risk_analyzer,
             risk_consolidator=risk_consolidator,
             health_scorer=health_scorer,

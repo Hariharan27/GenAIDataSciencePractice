@@ -32,7 +32,9 @@ from ai_project_health_monitor.orchestration.nodes.generate_summary import Gener
 from ai_project_health_monitor.orchestration.nodes.retrieve import RetrieveNode
 from ai_project_health_monitor.orchestration.nodes.trigger_alert import TriggerAlertNode
 from ai_project_health_monitor.orchestration.state import ProjectHealthState
-from ai_project_health_monitor.rag.retrieval import RetrievalService
+from ai_project_health_monitor.rag.project_health_retrieval import (
+    ProjectHealthEvidenceRetriever,
+)
 
 
 def route_after_alert_evaluation(
@@ -48,7 +50,7 @@ def route_after_alert_evaluation(
 
 
 def build_project_health_graph(
-    retrieval_service: RetrievalService,
+    evidence_retriever: ProjectHealthEvidenceRetriever,
     risk_analyzer: RiskAnalyzer,
     risk_consolidator: RiskConsolidator,
     health_scorer: HealthScorer,
@@ -63,7 +65,7 @@ def build_project_health_graph(
     """Build and compile the project health analysis workflow."""
 
     retrieve_node = RetrieveNode(
-        retrieval_service=retrieval_service,
+        evidence_retriever=evidence_retriever,
     )
 
     analyze_risks_node = AnalyzeRisksNode(

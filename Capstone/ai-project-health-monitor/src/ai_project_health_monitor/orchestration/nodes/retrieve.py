@@ -1,20 +1,22 @@
 from ai_project_health_monitor.orchestration.state import ProjectHealthState
-from ai_project_health_monitor.rag.retrieval import RetrievalService
+from ai_project_health_monitor.rag.project_health_retrieval import (
+    ProjectHealthEvidenceRetriever,
+)
 
 
 class RetrieveNode:
-    """LangGraph node responsible for retrieving relevant project evidence."""
+    """LangGraph node responsible for retrieving project health evidence."""
 
-    def __init__(self, retrieval_service: RetrievalService) -> None:
-        self._retrieval_service = retrieval_service
+    def __init__(
+        self,
+        evidence_retriever: ProjectHealthEvidenceRetriever,
+    ) -> None:
+        self._evidence_retriever = evidence_retriever
 
     def __call__(self, state: ProjectHealthState) -> dict[str, object]:
-        retrieval_results = self._retrieval_service.retrieve(
-            query=state.query,
+        retrieval_results = self._evidence_retriever.retrieve(
             project_id=state.project_id,
-            limit=5,
         )
-
         return {
             "retrieval_results": retrieval_results,
         }

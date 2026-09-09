@@ -1,0 +1,244 @@
+from datetime import UTC, datetime
+from unittest.mock import Mock
+
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+from ai_project_health_monitor.api.dependencies import (
+    ApplicationContainer,
+    get_application_container,
+)
+from ai_project_health_monitor.api.routes import router
+from ai_project_health_monitor.domain.models.evidence import Evidence
+from ai_project_health_monitor.domain.models.health_score import HealthScore
+from ai_project_health_monitor.domain.models.project_event import SourceType
+from ai_project_health_monitor.domain.models.risk_signal import (
+    RiskSeverity,
+    RiskSignal,
+    RiskType,
+)
+
+
+def create_test_app(container: ApplicationContainer) -> FastAPI:
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[get_application_container] = lambda: container
+    return app
+
+
+def test_index_project_returns_indexing_result() -> None:
+    container = Mock()
+
+    events = [Mock(), Mock(), Mock()]
+    container.ingestion_service.ingest_project.return_value = events
+    container.rag_indexer.index.return_value = 3
+
+    client = TestClient(create_test_app(container))
+
+    response = client.post("/api/v1/projects/PROJ-001/index")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "project_id": "PROJ-001",
+        "events_ingested": 3,
+        "chunks_indexed": 3,
+    }
+
+    container.ingestion_service.ingest_project.assert_called_once_with(
+        "PROJ-001",
+    )
+    container.rag_indexer.index.assert_called_once_with(events)
+
+
+def test_index_project_rejects_empty_project_id() -> None:
+    container = Mock()
+
+    client = TestClient(create_test_app(container))
+
+    response = client.post("/api/v1/projects/%20/index")
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "project_id cannot be empty",
+    }
+
+
+def test_analyze_project_health_returns_health_result() -> None:
+    container = Mock()
+
+    container.graph.invoke.return_value = {
+        "project_id": "PROJ-001",
+        "query": "What risks are affecting the project?",
+        "primary_risks": [],
+        "health_score": {
+            "project_id": "PROJ-001",
+            "score": 85.0,
+            "status": "healthy",
+            "contributing_risks": [],
+            "calculated_at": "2026-09-09T00:00:00+00:00",
+            "rationale": "Project is progressing well.",
+        },
+        "summary": None,
+        "alert_triggered": False,
+    }
+
+    client = TestClient(create_test_app(container))
+
+    response = client.post(
+        "/api/v1/projects/PROJ-001/health",
+        json={"query": "What risks are affecting the project?"},
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert body["project_id"] == "PROJ-001"
+    assert body["health_score"] == 85.0
+    assert body["health_status"] == "healthy"
+    assert body["rationale"] == "Project is progressing well."
+    assert body["risks"] == []
+    assert body["summary"] is None
+    assert body["alert_triggered"] is False
+
+    container.graph.invoke.assert_called_once()
+
+def test_analyze_project_health_returns_risk_details() -> None:
+    container = Mock()
+
+    evidence = Evidence(
+        event_id="EVT-JIRA-001",
+        source_type=SourceType.JIRA,
+        source_id="EVT-JIRA-001",
+        content=(
+            "Payment API integration is blocked because external API "
+            "credentials are missing."
+        ),
+        occurred_at=datetime(2026, 9, 1, tzinfo=UTC),
+    )
+
+    risk = RiskSignal(
+        signal_id="risk-001",
+        project_id="PROJ-001",
+        event_id="EVT-JIRA-001",
+        risk_type=RiskType.BLOCKER,
+        severity=RiskSeverity.HIGH,
+        confidence=0.95,
+        evidence=evidence,
+        evidence_quote=(
+            "Payment API integration is blocked because external API "
+            "credentials are missing."
+        ),
+        rationale=(
+            "The payment API integration is blocked by missing "
+            "credentials."
+        ),
+    )
+
+    health_score = HealthScore(
+        project_id="PROJ-001",
+        score=65.0,
+        status="at_risk",
+        contributing_risks=["risk-001"],
+        calculated_at=datetime(2026, 9, 9, tzinfo=UTC),
+        rationale="Project has a high-severity blocker.",
+    )
+
+    container.graph.invoke.return_value = {
+        "project_id": "PROJ-001",
+        "query": "What risks are affecting the project?",
+        "primary_risks": [risk],
+        "health_score": health_score,
+        "summary": None,
+        "alert_triggered": False,
+    }
+
+    client = TestClient(create_test_app(container))
+
+    response = client.post(
+        "/api/v1/projects/PROJ-001/health",
+        json={"query": "What risks are affecting the project?"},
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert body["project_id"] == "PROJ-001"
+    assert body["health_score"] == 65.0
+    assert body["health_status"] == "at_risk"
+    assert body["alert_triggered"] is False
+
+    assert body["risks"] == [
+        {
+            "signal_id": "risk-001",
+            "risk_type": "blocker",
+            "severity": "high",
+            "confidence": 0.95,
+            "evidence_quote": (
+                "Payment API integration is blocked because external API "
+                "credentials are missing."
+            ),
+            "rationale": (
+                "The payment API integration is blocked by missing "
+                "credentials."
+            ),
+        }
+    ]
+
+
+def test_analyze_project_health_rejects_whitespace_query() -> None:
+    container = Mock()
+
+    client = TestClient(create_test_app(container))
+
+    response = client.post(
+        "/api/v1/projects/PROJ-001/health",
+        json={"query": "   "},
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "query cannot be empty",
+    }
+
+
+def test_analyze_project_health_rejects_empty_query() -> None:
+    container = Mock()
+
+    client = TestClient(create_test_app(container))
+
+    response = client.post(
+        "/api/v1/projects/PROJ-001/health",
+        json={"query": ""},
+    )
+
+    assert response.status_code == 422
+
+
+def test_analyze_project_health_rejects_invalid_request_body() -> None:
+    container = Mock()
+
+    client = TestClient(create_test_app(container))
+
+    response = client.post(
+        "/api/v1/projects/PROJ-001/health",
+        json={},
+    )
+
+    assert response.status_code == 422
+
+def test_analyze_project_health_rejects_empty_project_id() -> None:
+    container = Mock()
+
+    client = TestClient(create_test_app(container))
+
+    response = client.post(
+        "/api/v1/projects/%20/health",
+        json={"query": "What risks are affecting the project?"},
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "project_id cannot be empty",
+    }

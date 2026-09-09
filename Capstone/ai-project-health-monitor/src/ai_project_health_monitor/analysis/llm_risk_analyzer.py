@@ -5,6 +5,9 @@ from pydantic import BaseModel, Field
 
 from ai_project_health_monitor.analysis.llm import LLMClient
 from ai_project_health_monitor.analysis.risk_analyzer import RiskAnalyzer
+from ai_project_health_monitor.analysis.risk_grounding_validator import (
+    RiskGroundingValidator,
+)
 from ai_project_health_monitor.domain.models.evidence import Evidence
 from ai_project_health_monitor.domain.models.risk_signal import (
     RiskSeverity,
@@ -27,8 +30,13 @@ class RiskAnalysisResponse(BaseModel):
 class LLMRiskAnalyzer(RiskAnalyzer):
     """Risk analyzer that extracts grounded risk signals using an LLM."""
 
-    def __init__(self, llm_client: LLMClient) -> None:
+    def __init__(
+        self,
+        llm_client: LLMClient,
+        grounding_validator: RiskGroundingValidator,
+    ) -> None:
         self._llm_client = llm_client
+        self._grounding_validator = grounding_validator
 
     def analyze(
         self,
@@ -95,7 +103,7 @@ class LLMRiskAnalyzer(RiskAnalyzer):
                                 "type": "string",
                                 "minLength": 1,
                             },
-                                "evidence_quote": {
+                            "evidence_quote": {
                                 "type": "string",
                                 "minLength": 1,
                             },
@@ -232,7 +240,8 @@ class LLMRiskAnalyzer(RiskAnalyzer):
 
     DOWNSTREAM RISK RULE
     --------------------
-    A downstream risk is valid only when the evidence explicitly states its impact or consequence.
+    A downstream risk is valid only when the evidence explicitly states
+    its impact or consequence.
 
     For example, if a blocker explicitly states that it is affecting the
     planned release date, the downstream schedule impact is valid and may
@@ -393,8 +402,14 @@ class LLMRiskAnalyzer(RiskAnalyzer):
         "severity": "high",
         "confidence": 0.95,
         "evidence_source_id": "EVT-JIRA-001",
-        "evidence_quote": "Payment API integration is currently blocked because the external API team has not provided the required credentials.",
-        "rationale": "The payment API integration cannot proceed because the required external credentials have not been provided."
+        "evidence_quote": (
+            "Payment API integration is currently blocked because "
+            "the external API team has not provided the required credentials."
+        ),
+        "rationale": (
+            "The payment API integration cannot proceed because "
+            "the required external credentials have not been provided."
+        ),
     }}
     ]
 
@@ -406,8 +421,27 @@ class LLMRiskAnalyzer(RiskAnalyzer):
     - Before returning each risk object, verify that evidence_quote is
     present in the selected evidence content.
 
+    FINAL EVIDENCE VERIFICATION
+    ---------------------------
+
+    Before producing the final JSON response, perform these checks for
+    every proposed risk:
+
+    1. The evidence_source_id MUST be one of the VALID EVIDENCE SOURCE IDS
+       listed above.
+    2. The selected evidence MUST actually support the proposed risk_type.
+    3. The evidence_quote MUST be copied exactly from that selected evidence.
+    4. If any check fails, remove that risk from the response.
+    5. If no risks remain after verification, return [].
+
+    IMPORTANT:
+    Do not use information from the example risk object as evidence.
+    The example is only a formatting example and is NOT part of the
+    provided project evidence.
+
     EXAMPLE: NO SUPPORTED RISK
     --------------------------
+
     If no provided evidence supports a relevant risk, return:
 
     []
@@ -438,8 +472,8 @@ class LLMRiskAnalyzer(RiskAnalyzer):
                 f"{evidence_source_id}"
             )
 
-    @staticmethod
     def _parse_response(
+        self,
         project_id: str,
         evidence: list[Evidence],
         response: str,
@@ -460,26 +494,23 @@ class LLMRiskAnalyzer(RiskAnalyzer):
         signals: list[RiskSignal] = []
 
         for item in raw_response:
-            parsed = RiskAnalysisResponse.model_validate(item)
+            try:
+                parsed = RiskAnalysisResponse.model_validate(item)
 
-            source_evidence = evidence_by_source_id.get(
-                parsed.evidence_source_id
-            )
-
-            if source_evidence is None:
-                raise ValueError(
-                    "LLM referenced evidence that was not provided: "
-                    f"{parsed.evidence_source_id}"
+                source_evidence = evidence_by_source_id.get(
+                    parsed.evidence_source_id
                 )
 
-            LLMRiskAnalyzer._validate_quote(
-                evidence_quote=parsed.evidence_quote,
-                evidence_content=source_evidence.content,
-                evidence_source_id=parsed.evidence_source_id,
-            )
+                if source_evidence is None:
+                    continue
 
-            signals.append(
-                RiskSignal(
+                self._validate_quote(
+                    evidence_quote=parsed.evidence_quote,
+                    evidence_content=source_evidence.content,
+                    evidence_source_id=parsed.evidence_source_id,
+                )
+
+                risk_signal = RiskSignal(
                     signal_id=str(uuid4()),
                     project_id=project_id,
                     event_id=source_evidence.event_id,
@@ -490,6 +521,15 @@ class LLMRiskAnalyzer(RiskAnalyzer):
                     evidence_quote=parsed.evidence_quote,
                     rationale=parsed.rationale,
                 )
-            )
+
+                self._grounding_validator.validate(
+                    risk=risk_signal,
+                    evidence=source_evidence,
+                )
+
+            except (ValueError, TypeError):
+                continue
+
+            signals.append(risk_signal)
 
         return signals

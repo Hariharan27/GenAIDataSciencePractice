@@ -1,14 +1,14 @@
 from ai_project_health_monitor.notifications.alert_deduplicator import (
     AlertDeduplicator,
 )
-from ai_project_health_monitor.notifications.alert_notifier import AlertNotifier
-from ai_project_health_monitor.orchestration.state import ProjectHealthState
 from ai_project_health_monitor.notifications.alert_escalator import (
     AlertEscalator,
 )
 from ai_project_health_monitor.notifications.alert_escalator_notifier import (
     AlertEscalatorNotifier,
 )
+from ai_project_health_monitor.notifications.alert_notifier import AlertNotifier
+from ai_project_health_monitor.orchestration.state import ProjectHealthState
 
 
 class TriggerAlertNode:

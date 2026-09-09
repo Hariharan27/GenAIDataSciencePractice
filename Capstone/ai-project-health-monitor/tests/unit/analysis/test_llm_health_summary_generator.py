@@ -7,12 +7,12 @@ from ai_project_health_monitor.analysis.llm import LLMClient
 from ai_project_health_monitor.analysis.llm_health_summary_generator import (
     LLMHealthSummaryGenerator,
 )
+from ai_project_health_monitor.domain.models.evidence import Evidence
 from ai_project_health_monitor.domain.models.health_score import (
     HealthScore,
     HealthStatus,
 )
 from ai_project_health_monitor.domain.models.project_event import SourceType
-from ai_project_health_monitor.domain.models.evidence import Evidence
 from ai_project_health_monitor.domain.models.risk_signal import (
     RiskSeverity,
     RiskSignal,

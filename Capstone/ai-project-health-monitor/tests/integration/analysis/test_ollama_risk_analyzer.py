@@ -2,6 +2,9 @@ from datetime import UTC, datetime
 
 from ai_project_health_monitor.analysis.llm_risk_analyzer import LLMRiskAnalyzer
 from ai_project_health_monitor.analysis.ollama import OllamaLLMClient
+from ai_project_health_monitor.analysis.risk_grounding_validator import (
+    DeterministicRiskGroundingValidator,
+)
 from ai_project_health_monitor.domain.models.evidence import Evidence
 from ai_project_health_monitor.domain.models.project_event import SourceType
 
@@ -13,6 +16,7 @@ def test_qwen3_extracts_risk_from_project_evidence() -> None:
 
     analyzer = LLMRiskAnalyzer(
         llm_client=llm_client,
+        grounding_validator=DeterministicRiskGroundingValidator(),
     )
 
     evidence = [

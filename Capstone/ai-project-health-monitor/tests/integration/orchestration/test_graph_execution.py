@@ -12,7 +12,6 @@ from ai_project_health_monitor.analysis.health_summary_generator import (
     HealthSummaryGenerator,
 )
 from ai_project_health_monitor.analysis.llm_risk_analyzer import LLMRiskAnalyzer
-from ai_project_health_monitor.analysis.risk_analyzer import RiskAnalyzer
 from ai_project_health_monitor.analysis.risk_consolidator import RiskConsolidator
 from ai_project_health_monitor.domain.models.evidence import Evidence
 from ai_project_health_monitor.domain.models.health_alert import HealthAlert
@@ -34,18 +33,15 @@ from ai_project_health_monitor.notifications.alert_deduplicator import AlertDedu
 from ai_project_health_monitor.notifications.alert_escalator import AlertEscalator
 from ai_project_health_monitor.notifications.alert_escalator_notifier import AlertEscalatorNotifier
 from ai_project_health_monitor.notifications.alert_notifier import AlertNotifier
+from ai_project_health_monitor.notifications.health_summary_notifier import (
+    HealthSummaryNotifier,
+)
 from ai_project_health_monitor.orchestration.graph import (
     build_project_health_graph,
 )
 from ai_project_health_monitor.rag.models.chunk import DocumentChunk
 from ai_project_health_monitor.rag.models.retrieval import RetrievalResult
 from ai_project_health_monitor.rag.retrieval import RetrievalService
-from ai_project_health_monitor.notifications.alert_deduplicator import (
-    AlertDeduplicator,
-)
-from ai_project_health_monitor.notifications.health_summary_notifier import (
-    HealthSummaryNotifier,
-)
 
 
 def test_project_health_graph_executes_end_to_end() -> None:

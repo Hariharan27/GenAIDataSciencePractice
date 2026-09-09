@@ -3,7 +3,6 @@ import logging
 from ai_project_health_monitor.domain.models.health_alert import HealthAlert
 from ai_project_health_monitor.notifications.alert_delivery import AlertDelivery
 
-
 logger = logging.getLogger(__name__)
 
 

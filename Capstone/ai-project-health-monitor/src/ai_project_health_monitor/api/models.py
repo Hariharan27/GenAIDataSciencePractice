@@ -12,6 +12,7 @@ class ProjectIndexResponse(BaseModel):
     events_ingested: int = Field(ge=0)
     chunks_indexed: int = Field(ge=0)
 
+
 class RiskSignalResponse(BaseModel):
     """Public representation of a detected project risk."""
 
@@ -33,3 +34,13 @@ class ProjectHealthResponse(BaseModel):
     risks: list[RiskSignalResponse]
     summary: ProjectHealthSummary | None
     alert_triggered: bool
+
+
+class HealthTrendResponse(BaseModel):
+    """API response for project health trend."""
+
+    project_id: str
+    current_score: float
+    previous_score: float | None
+    current_status: HealthStatus
+    score_change: float | None

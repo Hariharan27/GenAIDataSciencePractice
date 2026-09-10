@@ -76,6 +76,9 @@ from ai_project_health_monitor.rag.vector_store.qdrant import (
 from ai_project_health_monitor.services.health_monitor_scheduler import (
     HealthMonitorScheduler,
 )
+from ai_project_health_monitor.services.health_trend_service import (
+    HealthTrendService,
+)
 from ai_project_health_monitor.services.project_health_monitor import (
     ProjectHealthMonitor,
 )
@@ -150,8 +153,13 @@ class ApplicationContainer:
             health_snapshot_repository=self.health_snapshot_repository,
         )
 
+        self.health_trend_service = HealthTrendService(
+            health_snapshot_repository=self.health_snapshot_repository,
+        )
+
         self.project_health_monitor = ProjectHealthMonitor(
             graph=self.graph,
+            health_trend_service=self.health_trend_service,
         )
 
         self.health_monitor_scheduler = HealthMonitorScheduler(

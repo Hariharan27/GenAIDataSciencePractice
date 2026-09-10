@@ -8,6 +8,7 @@ from ai_project_health_monitor.api.models import (
     ProjectHealthResponse,
     ProjectIndexResponse,
     RiskSignalResponse,
+    HealthTrendResponse,
 )
 
 router = APIRouter(
@@ -91,4 +92,37 @@ def analyze_project_health(
         risks=risks,
         summary=result.summary,
         alert_triggered=result.alert_triggered,
+    )
+
+@router.get(
+    "/projects/{project_id}/health/trend",
+    response_model=HealthTrendResponse,
+)
+def get_project_health_trend(
+    project_id: str,
+    container: ApplicationContainer = Depends(
+        get_application_container,
+    ),
+) -> HealthTrendResponse:
+    """Return the historical health trend for a project."""
+    if not project_id.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="project_id cannot be empty",
+        )
+
+    trend = container.project_health_monitor.get_trend(project_id)
+
+    if trend is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No health history found for project {project_id}",
+        )
+
+    return HealthTrendResponse(
+        project_id=trend.project_id,
+        current_score=trend.current_score,
+        previous_score=trend.previous_score,
+        current_status=trend.current_status,
+        score_change=trend.score_change,
     )

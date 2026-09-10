@@ -11,6 +11,7 @@ from ai_project_health_monitor.api.dependencies import (
 from ai_project_health_monitor.api.routes import router
 from ai_project_health_monitor.domain.models.evidence import Evidence
 from ai_project_health_monitor.domain.models.health_score import HealthScore, HealthStatus
+from ai_project_health_monitor.domain.models.health_trend import HealthTrend
 from ai_project_health_monitor.domain.models.project_event import SourceType
 from ai_project_health_monitor.domain.models.risk_signal import (
     RiskSeverity,
@@ -229,3 +230,59 @@ def test_analyze_project_health_rejects_empty_project_id() -> None:
     assert response.json() == {
         "detail": "project_id cannot be empty",
     }
+
+def test_get_project_health_trend_returns_trend() -> None:
+    container = Mock()
+
+    trend = HealthTrend(
+        project_id="PROJ-001",
+        current_score=65.0,
+        previous_score=80.0,
+        current_status=HealthStatus.AT_RISK,
+        score_change=-15.0,
+    )
+
+    container.project_health_monitor.get_trend.return_value = trend
+    client = TestClient(create_test_app(container))
+
+    response = client.get("/api/v1/projects/PROJ-001/health/trend")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "project_id": "PROJ-001",
+        "current_score": 65.0,
+        "previous_score": 80.0,
+        "current_status": "at_risk",
+        "score_change": -15.0,
+    }
+
+    container.project_health_monitor.get_trend.assert_called_once_with(
+        "PROJ-001",
+    )
+
+
+def test_get_project_health_trend_returns_404_when_history_missing() -> None:
+    container = Mock()
+    container.project_health_monitor.get_trend.return_value = None
+    client = TestClient(create_test_app(container))
+
+    response = client.get("/api/v1/projects/PROJ-999/health/trend")
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": "No health history found for project PROJ-999",
+    }
+
+
+def test_get_project_health_trend_rejects_empty_project_id() -> None:
+    container = Mock()
+    client = TestClient(create_test_app(container))
+
+    response = client.get("/api/v1/projects/%20/health/trend")
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "project_id cannot be empty",
+    }
+
+    container.project_health_monitor.get_trend.assert_not_called()

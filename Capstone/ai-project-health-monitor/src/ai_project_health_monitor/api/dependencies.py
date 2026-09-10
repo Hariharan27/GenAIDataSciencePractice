@@ -73,6 +73,9 @@ from ai_project_health_monitor.rag.retrieval import RetrievalService
 from ai_project_health_monitor.rag.vector_store.qdrant import (
     QdrantVectorStore,
 )
+from ai_project_health_monitor.services.health_monitor_scheduler import (
+    HealthMonitorScheduler,
+)
 from ai_project_health_monitor.services.project_health_monitor import (
     ProjectHealthMonitor,
 )
@@ -149,6 +152,10 @@ class ApplicationContainer:
 
         self.project_health_monitor = ProjectHealthMonitor(
             graph=self.graph,
+        )
+
+        self.health_monitor_scheduler = HealthMonitorScheduler(
+            monitor=self.project_health_monitor,
         )
 
         self.rag_indexer = RAGIndexer(

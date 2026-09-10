@@ -41,7 +41,14 @@ class Settings(BaseSettings):
     )
     environment: Environment = Environment.DEVELOPMENT
     debug: bool = False
-
+    health_monitoring_enabled: bool = True
+    health_monitoring_interval_minutes: int = Field(
+        default=60,
+        gt=0,
+    )
+    health_monitoring_project_ids: list[str] = Field(
+        default_factory=lambda: ["PROJ-001"],
+    )
     llm_provider: LLMProvider = LLMProvider.OLLAMA
     llm_model: str = Field(
         default="qwen3:8b",

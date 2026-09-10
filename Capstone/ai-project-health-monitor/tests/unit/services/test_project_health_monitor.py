@@ -1,4 +1,3 @@
-from unittest.mock import Mock
 from contextlib import suppress
 from unittest.mock import Mock
 

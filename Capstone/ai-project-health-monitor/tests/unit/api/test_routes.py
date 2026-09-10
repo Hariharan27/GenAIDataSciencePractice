@@ -18,6 +18,7 @@ from ai_project_health_monitor.domain.models.risk_signal import (
     RiskSignal,
     RiskType,
 )
+from ai_project_health_monitor.domain.models.weekly_health_summary import WeeklyHealthSummary
 from ai_project_health_monitor.orchestration.state import ProjectHealthState
 
 
@@ -286,3 +287,86 @@ def test_get_project_health_trend_rejects_empty_project_id() -> None:
     }
 
     container.project_health_monitor.get_trend.assert_not_called()
+
+def test_get_project_weekly_health_summary_returns_summary() -> None:
+    container = Mock()
+
+    summary = WeeklyHealthSummary(
+        project_id="PROJ-001",
+        starting_score=82.0,
+        ending_score=61.0,
+        score_change=-21.0,
+        starting_status=HealthStatus.HEALTHY,
+        ending_status=HealthStatus.AT_RISK,
+        health_improved=False,
+        health_deteriorated=True,
+        summary="Project health deteriorated during the week.",
+        outlook="Release risk remains elevated.",
+        recommended_actions=[
+            "Resolve the payment integration blocker.",
+        ],
+    )
+
+    container.weekly_health_summary_service.generate.return_value = summary
+
+    client = TestClient(create_test_app(container))
+
+    response = client.get(
+        "/api/v1/projects/PROJ-001/health/weekly-summary"
+        "?start_date=2026-09-01T00:00:00"
+        "&end_date=2026-09-07T23:59:59"
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert body["project_id"] == "PROJ-001"
+    assert body["starting_score"] == 82.0
+    assert body["ending_score"] == 61.0
+    assert body["score_change"] == -21.0
+    assert body["starting_status"] == "healthy"
+    assert body["ending_status"] == "at_risk"
+    assert body["health_deteriorated"] is True
+    assert body["summary"] == "Project health deteriorated during the week."
+
+    container.weekly_health_summary_service.generate.assert_called_once()
+
+
+def test_get_project_weekly_health_summary_rejects_empty_project_id() -> None:
+    container = Mock()
+
+    client = TestClient(create_test_app(container))
+
+    response = client.get(
+        "/api/v1/projects/%20/health/weekly-summary"
+        "?start_date=2026-09-01T00:00:00"
+        "&end_date=2026-09-07T23:59:59"
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "project_id cannot be empty",
+    }
+
+    container.weekly_health_summary_service.generate.assert_not_called()
+
+def test_get_project_weekly_health_summary_returns_400_for_invalid_range() -> None:
+    container = Mock()
+
+    container.weekly_health_summary_service.generate.side_effect = ValueError(
+        "start_date cannot be after end_date"
+    )
+
+    client = TestClient(create_test_app(container))
+
+    response = client.get(
+        "/api/v1/projects/PROJ-001/health/weekly-summary"
+        "?start_date=2026-09-07T00:00:00"
+        "&end_date=2026-09-01T00:00:00"
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "start_date cannot be after end_date",
+    }

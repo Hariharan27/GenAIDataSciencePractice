@@ -3,9 +3,7 @@ from unittest.mock import Mock, patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from ai_project_health_monitor.main import settings
-from ai_project_health_monitor.main import lifespan
-from ai_project_health_monitor.main import app
+from ai_project_health_monitor.main import app, lifespan, settings
 
 
 def test_health_check_returns_liveness_status() -> None:

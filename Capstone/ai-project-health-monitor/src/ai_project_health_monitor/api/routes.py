@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from ai_project_health_monitor.api.dependencies import (
@@ -5,10 +7,11 @@ from ai_project_health_monitor.api.dependencies import (
     get_application_container,
 )
 from ai_project_health_monitor.api.models import (
+    HealthTrendResponse,
     ProjectHealthResponse,
     ProjectIndexResponse,
     RiskSignalResponse,
-    HealthTrendResponse,
+    WeeklyHealthSummaryResponse,
 )
 
 router = APIRouter(
@@ -125,4 +128,65 @@ def get_project_health_trend(
         previous_score=trend.previous_score,
         current_status=trend.current_status,
         score_change=trend.score_change,
+    )
+
+
+@router.get(
+    "/projects/{project_id}/health/weekly-summary",
+    response_model=WeeklyHealthSummaryResponse,
+)
+def get_project_weekly_health_summary(
+    project_id: str,
+    start_date: datetime,
+    end_date: datetime,
+    container: ApplicationContainer = Depends(
+        get_application_container,
+    ),
+) -> WeeklyHealthSummaryResponse:
+    """Generate a weekly project health summary."""
+
+    if not project_id.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="project_id cannot be empty",
+        )
+
+    try:
+        summary = container.weekly_health_summary_service.generate(
+            project_id=project_id,
+            start_date=start_date,
+            end_date=end_date,
+            key_risks=[],
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
+    return WeeklyHealthSummaryResponse(
+        project_id=summary.project_id,
+        start_date=start_date,
+        end_date=end_date,
+        starting_score=summary.starting_score,
+        ending_score=summary.ending_score,
+        score_change=summary.score_change,
+        starting_status=summary.starting_status,
+        ending_status=summary.ending_status,
+        health_improved=summary.health_improved,
+        health_deteriorated=summary.health_deteriorated,
+        key_risks=[
+            RiskSignalResponse(
+                signal_id=risk.signal_id,
+                risk_type=risk.risk_type,
+                severity=risk.severity,
+                confidence=risk.confidence,
+                evidence_quote=risk.evidence_quote,
+                rationale=risk.rationale,
+            )
+            for risk in summary.key_risks
+        ],
+        summary=summary.summary,
+        outlook=summary.outlook,
+        recommended_actions=summary.recommended_actions,
     )

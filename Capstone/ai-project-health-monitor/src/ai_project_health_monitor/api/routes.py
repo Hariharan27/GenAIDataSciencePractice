@@ -9,7 +9,6 @@ from ai_project_health_monitor.api.models import (
     ProjectIndexResponse,
     RiskSignalResponse,
 )
-from ai_project_health_monitor.orchestration.state import ProjectHealthState
 
 router = APIRouter(
     prefix="/api/v1",
@@ -63,14 +62,7 @@ def analyze_project_health(
             detail="project_id cannot be empty",
         )
 
-    state = ProjectHealthState(
-        project_id=project_id,
-        query="project health assessment",
-    )
-
-    result = ProjectHealthState.model_validate(
-        container.graph.invoke(state)
-    )
+    result = container.project_health_monitor.analyze(project_id)
 
     health_score = result.health_score
 

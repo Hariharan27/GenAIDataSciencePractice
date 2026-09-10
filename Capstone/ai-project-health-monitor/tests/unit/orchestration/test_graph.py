@@ -21,6 +21,9 @@ from ai_project_health_monitor.orchestration.graph import (
     route_after_alert_evaluation,
 )
 from ai_project_health_monitor.orchestration.state import ProjectHealthState
+from ai_project_health_monitor.persistence.repositories.health_snapshot import (
+    HealthSnapshotRepository,
+)
 from ai_project_health_monitor.rag.project_health_retrieval import (
     ProjectHealthEvidenceRetriever,
 )
@@ -38,6 +41,7 @@ def test_project_health_graph_can_be_compiled() -> None:
     escalation_notifier = Mock(spec=AlertEscalatorNotifier)
 
     summary_notifier = Mock(spec=HealthSummaryNotifier)
+    health_snapshot_repository = Mock(spec=HealthSnapshotRepository)
 
     graph = build_project_health_graph(
         evidence_retriever=retrieval_service,
@@ -51,6 +55,7 @@ def test_project_health_graph_can_be_compiled() -> None:
         escalator=escalator,
         escalation_notifier=escalation_notifier,
         summary_notifier=summary_notifier,
+        health_snapshot_repository=health_snapshot_repository,
     )
 
     assert graph is not None

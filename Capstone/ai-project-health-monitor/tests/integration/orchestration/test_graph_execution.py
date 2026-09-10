@@ -39,6 +39,9 @@ from ai_project_health_monitor.notifications.health_summary_notifier import (
 from ai_project_health_monitor.orchestration.graph import (
     build_project_health_graph,
 )
+from ai_project_health_monitor.persistence.repositories.in_memory_health_snapshot import (
+    InMemoryHealthSnapshotRepository,
+)
 from ai_project_health_monitor.rag.models.chunk import DocumentChunk
 from ai_project_health_monitor.rag.models.retrieval import RetrievalResult
 from ai_project_health_monitor.rag.project_health_retrieval import (
@@ -58,6 +61,7 @@ def test_project_health_graph_executes_end_to_end() -> None:
     escalator = Mock(spec=AlertEscalator)
     escalation_notifier = Mock(spec=AlertEscalatorNotifier)
     summary_notifier = Mock(spec=HealthSummaryNotifier)
+    health_snapshot_repository = InMemoryHealthSnapshotRepository()
 
     chunk = DocumentChunk(
         chunk_id="CHUNK-001",
@@ -172,6 +176,7 @@ def test_project_health_graph_executes_end_to_end() -> None:
         escalator=escalator,
         escalation_notifier=escalation_notifier,
         summary_notifier=summary_notifier,
+        health_snapshot_repository=health_snapshot_repository,
     )
 
     result = graph.invoke(
@@ -180,6 +185,15 @@ def test_project_health_graph_executes_end_to_end() -> None:
             "query": "What risks are affecting the project?",
         }
     )
+
+    snapshots = health_snapshot_repository.get_history("PROJ-001")
+
+    assert len(snapshots) == 1
+    assert snapshots[0].project_id == "PROJ-001"
+    assert snapshots[0].health_score == health_score.score
+    assert snapshots[0].health_status == health_score.status
+    assert snapshots[0].risk_signals == [risk_signal]
+    assert snapshots[0].calculated_at == health_score.calculated_at
 
     summary_notifier.notify.assert_called_once_with(summary)
     assert result["project_id"] == "PROJ-001"
@@ -257,6 +271,7 @@ def test_project_health_graph_scores_only_primary_risks() -> None:
     escalator = Mock(spec=AlertEscalator)
     escalation_notifier = Mock(spec=AlertEscalatorNotifier)
     summary_notifier = Mock(spec=HealthSummaryNotifier)
+    health_snapshot_repository = InMemoryHealthSnapshotRepository()
 
     evidence = Evidence(
         event_id="EVT-001",
@@ -337,6 +352,7 @@ def test_project_health_graph_scores_only_primary_risks() -> None:
         escalator=escalator,
         escalation_notifier=escalation_notifier,
         summary_notifier=summary_notifier,
+        health_snapshot_repository = health_snapshot_repository
     )
 
     result = graph.invoke(
@@ -383,6 +399,7 @@ def test_project_health_graph_triggers_alert_for_critical_health() -> None:
     escalator = Mock(spec=AlertEscalator)
     escalation_notifier = Mock(spec=AlertEscalatorNotifier)
     summary_notifier = Mock(spec=HealthSummaryNotifier)
+    health_snapshot_repository = InMemoryHealthSnapshotRepository()
 
     evidence = Evidence(
         event_id="EVT-001",
@@ -475,6 +492,7 @@ def test_project_health_graph_triggers_alert_for_critical_health() -> None:
         escalator=escalator,
         escalation_notifier=escalation_notifier,
         summary_notifier=summary_notifier,
+        health_snapshot_repository=health_snapshot_repository,
     )
 
     result = graph.invoke(

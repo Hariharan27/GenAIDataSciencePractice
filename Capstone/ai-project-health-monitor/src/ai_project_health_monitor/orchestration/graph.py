@@ -29,9 +29,15 @@ from ai_project_health_monitor.orchestration.nodes.evaluate_alert import (
     EvaluateAlertNode,
 )
 from ai_project_health_monitor.orchestration.nodes.generate_summary import GenerateSummaryNode
+from ai_project_health_monitor.orchestration.nodes.persist_health_snapshot import (
+    PersistHealthSnapshotNode,
+)
 from ai_project_health_monitor.orchestration.nodes.retrieve import RetrieveNode
 from ai_project_health_monitor.orchestration.nodes.trigger_alert import TriggerAlertNode
 from ai_project_health_monitor.orchestration.state import ProjectHealthState
+from ai_project_health_monitor.persistence.repositories.health_snapshot import (
+    HealthSnapshotRepository,
+)
 from ai_project_health_monitor.rag.project_health_retrieval import (
     ProjectHealthEvidenceRetriever,
 )
@@ -61,6 +67,7 @@ def build_project_health_graph(
     escalator: AlertEscalator,
     escalation_notifier: AlertEscalatorNotifier,
     summary_notifier: HealthSummaryNotifier,
+    health_snapshot_repository: HealthSnapshotRepository,
 ) -> CompiledStateGraph[ProjectHealthState, None, ProjectHealthState, ProjectHealthState]:
     """Build and compile the project health analysis workflow."""
 
@@ -99,6 +106,10 @@ def build_project_health_graph(
     summary_notifier=summary_notifier,
     )
 
+    persist_health_snapshot_node = PersistHealthSnapshotNode(
+    health_snapshot_repository=health_snapshot_repository,
+)
+
     graph = StateGraph(ProjectHealthState)
 
     graph.add_node("retrieve", retrieve_node)
@@ -109,6 +120,7 @@ def build_project_health_graph(
     graph.add_node("evaluate_alert", evaluate_alert_node)
     graph.add_node("alert", trigger_alert)
     graph.add_node("deliver_summary", deliver_summary_node)
+    graph.add_node("persist_health_snapshot", persist_health_snapshot_node)
 
     graph.add_edge(START, "retrieve")
     graph.add_edge("retrieve", "analyze_risks")
@@ -116,7 +128,9 @@ def build_project_health_graph(
     graph.add_edge("consolidate_risks", "calculate_health")
     graph.add_edge("calculate_health", "generate_summary")
     graph.add_edge("generate_summary", "deliver_summary")
-    graph.add_edge("deliver_summary", "evaluate_alert")
+    graph.add_edge("deliver_summary", "persist_health_snapshot")
+    graph.add_edge("persist_health_snapshot", "evaluate_alert")
+
     graph.add_conditional_edges(
         "evaluate_alert",
         route_after_alert_evaluation,

@@ -67,21 +67,21 @@ def test_index_project_rejects_empty_project_id() -> None:
 def test_analyze_project_health_returns_health_result() -> None:
     container = Mock()
 
-    container.graph.invoke.return_value = {
-        "project_id": "PROJ-001",
-        "query": "What risks are affecting the project?",
-        "primary_risks": [],
-        "health_score": {
-            "project_id": "PROJ-001",
-            "score": 85.0,
-            "status": "healthy",
-            "contributing_risks": [],
-            "calculated_at": "2026-09-09T00:00:00+00:00",
-            "rationale": "Project is progressing well.",
-        },
-        "summary": None,
-        "alert_triggered": False,
-    }
+    container.project_health_monitor.analyze.return_value = ProjectHealthState(
+        project_id="PROJ-001",
+        query="project health assessment",
+        primary_risks=[],
+        health_score=HealthScore(
+            project_id="PROJ-001",
+            score=85.0,
+            status=HealthStatus.HEALTHY,
+            contributing_risks=[],
+            calculated_at=datetime(2026, 9, 9, tzinfo=UTC),
+            rationale="Project is progressing well.",
+        ),
+        summary=None,
+        alert_triggered=False,
+    )
 
     client = TestClient(create_test_app(container))
 
@@ -102,7 +102,10 @@ def test_analyze_project_health_returns_health_result() -> None:
     assert body["summary"] is None
     assert body["alert_triggered"] is False
 
-    container.graph.invoke.assert_called_once()
+    assert body["summary"] is None
+    assert body["alert_triggered"] is False
+
+    container.project_health_monitor.analyze.assert_called_once_with("PROJ-001")
 
 def test_analyze_project_health_returns_risk_details() -> None:
     container = Mock()
@@ -145,15 +148,14 @@ def test_analyze_project_health_returns_risk_details() -> None:
         rationale="Project has a high-severity blocker.",
     )
 
-    container.graph.invoke.return_value = {
-        "project_id": "PROJ-001",
-        "query": "What risks are affecting the project?",
-        "primary_risks": [risk],
-        "health_score": health_score,
-        "summary": None,
-        "alert_triggered": False,
-    }
-
+    container.project_health_monitor.analyze.return_value = ProjectHealthState(
+        project_id="PROJ-001",
+        query="project health assessment",
+        primary_risks=[risk],
+        health_score=health_score,
+        summary=None,
+        alert_triggered=False,
+    )
     client = TestClient(create_test_app(container))
 
     response = client.post(
@@ -189,7 +191,7 @@ def test_analyze_project_health_returns_risk_details() -> None:
 
 def test_analyze_project_health_does_not_require_query() -> None:
     container = Mock()
-    container.graph.invoke.return_value = ProjectHealthState(
+    container.project_health_monitor.analyze.return_value = ProjectHealthState(
         project_id="PROJ-001",
         query="project health assessment",
         health_score=HealthScore(
@@ -211,7 +213,7 @@ def test_analyze_project_health_does_not_require_query() -> None:
     assert response.status_code == 200
     assert response.json()["project_id"] == "PROJ-001"
 
-    container.graph.invoke.assert_called_once()
+    container.project_health_monitor.analyze.assert_called_once_with("PROJ-001")
 
 def test_analyze_project_health_rejects_empty_project_id() -> None:
     container = Mock()

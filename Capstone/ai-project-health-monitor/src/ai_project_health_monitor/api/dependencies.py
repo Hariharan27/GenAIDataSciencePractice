@@ -79,8 +79,23 @@ from ai_project_health_monitor.services.health_monitor_scheduler import (
 from ai_project_health_monitor.services.health_trend_service import (
     HealthTrendService,
 )
+from ai_project_health_monitor.services.llm_weekly_health_summary_generator import (
+    LLMWeeklyHealthSummaryGenerator,
+)
 from ai_project_health_monitor.services.project_health_monitor import (
     ProjectHealthMonitor,
+)
+from ai_project_health_monitor.services.weekly_health_analysis_service import (
+    WeeklyHealthAnalysisService,
+)
+from ai_project_health_monitor.services.weekly_health_history_service import (
+    WeeklyHealthHistoryService,
+)
+from ai_project_health_monitor.services.weekly_health_summary_service import (
+    WeeklyHealthSummaryService,
+)
+from ai_project_health_monitor.services.weekly_risk_evolution_service import (
+    WeeklyRiskEvolutionService,
 )
 
 
@@ -114,6 +129,32 @@ class ApplicationContainer:
 
         self.llm_client = LLMClientFactory.create(settings)
 
+        # Historical health services
+        self.health_trend_service = HealthTrendService(
+            health_snapshot_repository=self.health_snapshot_repository,
+        )
+
+        self.weekly_health_history_service = WeeklyHealthHistoryService(
+            health_snapshot_repository=self.health_snapshot_repository,
+        )
+
+        self.weekly_health_analysis_service = WeeklyHealthAnalysisService()
+
+        self.weekly_risk_evolution_service = WeeklyRiskEvolutionService()
+
+        # Weekly summary generation
+        self.weekly_health_summary_generator = LLMWeeklyHealthSummaryGenerator(
+            llm_client=self.llm_client,
+        )
+
+        self.weekly_health_summary_service = WeeklyHealthSummaryService(
+            weekly_health_history_service=self.weekly_health_history_service,
+            weekly_health_analysis_service=self.weekly_health_analysis_service,
+            weekly_risk_evolution_service=self.weekly_risk_evolution_service,
+            weekly_health_summary_generator=self.weekly_health_summary_generator,
+        )
+
+        # Risk analysis
         risk_analyzer = LLMRiskAnalyzer(
             llm_client=self.llm_client,
             grounding_validator=DeterministicRiskGroundingValidator(),
@@ -121,11 +162,14 @@ class ApplicationContainer:
 
         risk_consolidator = RiskConsolidator()
         health_scorer = DeterministicHealthScorer()
+
         summary_generator = LLMHealthSummaryGenerator(
             llm_client=self.llm_client,
         )
+
         alert_evaluator = DeterministicHealthAlertEvaluator()
 
+        # Alerting
         alert_delivery = LoggingAlertDelivery()
         notifier = LoggingAlertNotifier(alert_delivery)
 
@@ -133,6 +177,7 @@ class ApplicationContainer:
         escalator = DeterministicAlertEscalator()
         escalation_notifier = LoggingAlertEscalatorNotifier()
 
+        # Summary delivery
         summary_delivery = LoggingHealthSummaryDelivery()
         summary_notifier = LoggingHealthSummaryNotifier(
             summary_delivery,
@@ -150,10 +195,6 @@ class ApplicationContainer:
             escalator=escalator,
             escalation_notifier=escalation_notifier,
             summary_notifier=summary_notifier,
-            health_snapshot_repository=self.health_snapshot_repository,
-        )
-
-        self.health_trend_service = HealthTrendService(
             health_snapshot_repository=self.health_snapshot_repository,
         )
 
@@ -175,6 +216,7 @@ class ApplicationContainer:
         self.ingestion_service = IngestionService(
             connectors=self._build_connectors(settings),
         )
+
 
     @staticmethod
     def _build_connectors(

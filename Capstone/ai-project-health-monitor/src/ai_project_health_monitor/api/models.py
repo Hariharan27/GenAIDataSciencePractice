@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 from ai_project_health_monitor.domain.models.health_score import HealthStatus
@@ -44,3 +46,26 @@ class HealthTrendResponse(BaseModel):
     previous_score: float | None
     current_status: HealthStatus
     score_change: float | None
+
+class WeeklyHealthSummaryResponse(BaseModel):
+    """API response for a weekly project health summary."""
+
+    project_id: str
+    start_date: datetime
+    end_date: datetime
+
+    starting_score: float = Field(ge=0.0, le=100.0)
+    ending_score: float = Field(ge=0.0, le=100.0)
+    score_change: float
+
+    starting_status: HealthStatus
+    ending_status: HealthStatus
+
+    health_improved: bool
+    health_deteriorated: bool
+
+    key_risks: list[RiskSignalResponse]
+
+    summary: str
+    outlook: str
+    recommended_actions: list[str]

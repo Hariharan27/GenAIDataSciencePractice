@@ -5,12 +5,10 @@ from ai_project_health_monitor.api.dependencies import (
     get_application_container,
 )
 from ai_project_health_monitor.api.models import (
-    ProjectHealthRequest,
     ProjectHealthResponse,
     ProjectIndexResponse,
     RiskSignalResponse,
 )
-from ai_project_health_monitor.orchestration.state import ProjectHealthState
 
 router = APIRouter(
     prefix="/api/v1",
@@ -52,7 +50,6 @@ def index_project(
 )
 def analyze_project_health(
     project_id: str,
-    request: ProjectHealthRequest,
     container: ApplicationContainer = Depends(
         get_application_container,
     ),
@@ -65,20 +62,7 @@ def analyze_project_health(
             detail="project_id cannot be empty",
         )
 
-    if not request.query.strip():
-        raise HTTPException(
-            status_code=400,
-            detail="query cannot be empty",
-        )
-
-    state = ProjectHealthState(
-        project_id=project_id,
-        query=request.query,
-    )
-
-    result = ProjectHealthState.model_validate(
-        container.graph.invoke(state)
-    )
+    result = container.project_health_monitor.analyze(project_id)
 
     health_score = result.health_score
 

@@ -12,12 +12,6 @@ class ProjectIndexResponse(BaseModel):
     events_ingested: int = Field(ge=0)
     chunks_indexed: int = Field(ge=0)
 
-class ProjectHealthRequest(BaseModel):
-    """Request for project health analysis."""
-
-    query: str = Field(min_length=1)
-
-
 class RiskSignalResponse(BaseModel):
     """Public representation of a detected project risk."""
 

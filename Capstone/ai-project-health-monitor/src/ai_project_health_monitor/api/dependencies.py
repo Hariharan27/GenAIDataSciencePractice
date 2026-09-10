@@ -60,12 +60,21 @@ from ai_project_health_monitor.notifications.logging_health_summary_notifier imp
 from ai_project_health_monitor.orchestration.graph import (
     build_project_health_graph,
 )
+from ai_project_health_monitor.persistence.repositories.in_memory_health_snapshot import (
+    InMemoryHealthSnapshotRepository,
+)
 from ai_project_health_monitor.rag.chunking import FixedSizeChunker
 from ai_project_health_monitor.rag.embeddings.bge import BGEEmbeddingModel
 from ai_project_health_monitor.rag.indexing import RAGIndexer
+from ai_project_health_monitor.rag.project_health_retrieval import (
+    ProjectHealthEvidenceRetriever,
+)
 from ai_project_health_monitor.rag.retrieval import RetrievalService
 from ai_project_health_monitor.rag.vector_store.qdrant import (
     QdrantVectorStore,
+)
+from ai_project_health_monitor.services.project_health_monitor import (
+    ProjectHealthMonitor,
 )
 
 
@@ -89,6 +98,12 @@ class ApplicationContainer:
         self.retrieval_service = RetrievalService(
             embedding_model=self.embedding_model,
             vector_store=self.vector_store,
+        )
+
+        self.health_snapshot_repository = InMemoryHealthSnapshotRepository()
+
+        self.project_health_evidence_retriever = ProjectHealthEvidenceRetriever(
+            retrieval_service=self.retrieval_service,
         )
 
         self.llm_client = LLMClientFactory.create(settings)
@@ -118,7 +133,7 @@ class ApplicationContainer:
         )
 
         self.graph = build_project_health_graph(
-            retrieval_service=self.retrieval_service,
+            evidence_retriever=self.project_health_evidence_retriever,
             risk_analyzer=risk_analyzer,
             risk_consolidator=risk_consolidator,
             health_scorer=health_scorer,
@@ -129,6 +144,11 @@ class ApplicationContainer:
             escalator=escalator,
             escalation_notifier=escalation_notifier,
             summary_notifier=summary_notifier,
+            health_snapshot_repository=self.health_snapshot_repository,
+        )
+
+        self.project_health_monitor = ProjectHealthMonitor(
+            graph=self.graph,
         )
 
         self.rag_indexer = RAGIndexer(

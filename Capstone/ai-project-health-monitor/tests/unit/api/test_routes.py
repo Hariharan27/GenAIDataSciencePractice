@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timezone
 from unittest.mock import Mock
 
 from fastapi import FastAPI
@@ -305,6 +305,25 @@ def test_get_project_weekly_health_summary_returns_summary() -> None:
         recommended_actions=[
             "Resolve the payment integration blocker.",
         ],
+        key_risks=[
+        RiskSignal(
+        signal_id="risk-001",
+        project_id="PROJ-001",
+        risk_type=RiskType.BLOCKER,
+        severity=RiskSeverity.HIGH,
+        confidence=0.95,
+        evidence_quote="Payment API integration is blocked.",
+        rationale="Missing external API credentials are blocking integration.",
+        event_id="EVT-001",
+        evidence = Evidence(
+                event_id="EVT-001",
+                source_id="EVT-001",
+                source_type=SourceType.JIRA,
+                content="Payment API integration is blocked.",
+                occurred_at=datetime(2026, 9, 1, tzinfo=timezone.utc),
+            ),
+    )
+    ],
     )
 
     container.weekly_health_summary_service.generate.return_value = summary
@@ -329,8 +348,23 @@ def test_get_project_weekly_health_summary_returns_summary() -> None:
     assert body["ending_status"] == "at_risk"
     assert body["health_deteriorated"] is True
     assert body["summary"] == "Project health deteriorated during the week."
+    assert body["key_risks"] == [
+        {
+            "signal_id": "risk-001",
+            "risk_type": "blocker",
+            "severity": "high",
+            "confidence": 0.95,
+            "evidence_quote": "Payment API integration is blocked.",
+            "rationale": "Missing external API credentials are blocking integration.",
+        }
+    ]
 
-    container.weekly_health_summary_service.generate.assert_called_once()
+    container.weekly_health_summary_service.generate.assert_called_once_with(
+        project_id="PROJ-001",
+        start_date=datetime(2026, 9, 1, tzinfo=timezone.utc),
+        end_date=datetime(2026, 9, 7, 23, 59, 59, tzinfo=timezone.utc),
+        key_risks=[],
+    )
 
 
 def test_get_project_weekly_health_summary_rejects_empty_project_id() -> None:

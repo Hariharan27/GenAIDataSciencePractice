@@ -47,8 +47,14 @@ class WeeklyHealthSummaryService:
         )
 
         analysis = self._analysis_service.analyze(history)
-
         risk_evolution = self._risk_evolution_service.analyze(history)
+
+        if history.snapshots:
+            latest_snapshot = max(
+                history.snapshots,
+                key=lambda snapshot: snapshot.calculated_at,
+            )
+            key_risks = latest_snapshot.risk_signals
 
         return self._summary_generator.generate(
             analysis=analysis,

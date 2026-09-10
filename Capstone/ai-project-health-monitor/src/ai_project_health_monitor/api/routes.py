@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -150,6 +150,12 @@ def get_project_weekly_health_summary(
             status_code=400,
             detail="project_id cannot be empty",
         )
+
+    if start_date.tzinfo is None:
+        start_date = start_date.replace(tzinfo=timezone.utc)
+
+    if end_date.tzinfo is None:
+        end_date = end_date.replace(tzinfo=timezone.utc)
 
     try:
         summary = container.weekly_health_summary_service.generate(

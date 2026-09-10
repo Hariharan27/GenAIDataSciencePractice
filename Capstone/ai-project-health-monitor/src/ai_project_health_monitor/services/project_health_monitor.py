@@ -1,6 +1,8 @@
 from langgraph.graph.state import CompiledStateGraph
 
+from ai_project_health_monitor.domain.models.health_trend import HealthTrend
 from ai_project_health_monitor.orchestration.state import ProjectHealthState
+from ai_project_health_monitor.services.health_trend_service import HealthTrendService
 
 
 class ProjectHealthMonitor:
@@ -9,8 +11,10 @@ class ProjectHealthMonitor:
     def __init__(
         self,
         graph: CompiledStateGraph,
+        health_trend_service: HealthTrendService,
     ) -> None:
         self._graph = graph
+        self._health_trend_service = health_trend_service
 
     def analyze(self, project_id: str) -> ProjectHealthState:
         """Run the project health workflow for a project."""
@@ -25,3 +29,7 @@ class ProjectHealthMonitor:
         result = self._graph.invoke(state)
 
         return ProjectHealthState.model_validate(result)
+
+    def get_trend(self, project_id: str) -> HealthTrend | None:
+        """Return the historical health trend for a project."""
+        return self._health_trend_service.get_trend(project_id)

@@ -1,6 +1,7 @@
 from unittest.mock import Mock
 
 from ai_project_health_monitor.api.dependencies import ApplicationContainer
+from ai_project_health_monitor.core.config import Settings
 
 
 def test_application_container_creates_health_monitor_scheduler() -> None:
@@ -18,3 +19,12 @@ def test_application_container_creates_health_monitor_scheduler() -> None:
 
     assert scheduler is not None
     assert scheduler._monitor is container.project_health_monitor
+
+def test_application_container_creates_health_trend_service() -> None:
+    container = ApplicationContainer(Settings())
+
+    assert container.health_trend_service is not None
+    assert (
+        container.health_trend_service._health_snapshot_repository
+        is container.health_snapshot_repository
+    )

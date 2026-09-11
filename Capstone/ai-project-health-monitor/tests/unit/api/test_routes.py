@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import Mock
 
 from fastapi import FastAPI
@@ -320,7 +320,7 @@ def test_get_project_weekly_health_summary_returns_summary() -> None:
                 source_id="EVT-001",
                 source_type=SourceType.JIRA,
                 content="Payment API integration is blocked.",
-                occurred_at=datetime(2026, 9, 1, tzinfo=timezone.utc),
+                occurred_at=datetime(2026, 9, 1, tzinfo=UTC),
             ),
     )
     ],
@@ -361,8 +361,8 @@ def test_get_project_weekly_health_summary_returns_summary() -> None:
 
     container.weekly_health_summary_service.generate.assert_called_once_with(
         project_id="PROJ-001",
-        start_date=datetime(2026, 9, 1, tzinfo=timezone.utc),
-        end_date=datetime(2026, 9, 7, 23, 59, 59, tzinfo=timezone.utc),
+        start_date=datetime(2026, 9, 1, tzinfo=UTC),
+        end_date=datetime(2026, 9, 7, 23, 59, 59, tzinfo=UTC),
         key_risks=[],
     )
 

@@ -52,10 +52,7 @@ def load_evaluation_cases() -> list[RetrievalEvaluationCase]:
     ]
 
 
-def build_pipeline(
-    *,
-    enable_reranking: bool,
-) -> RAGPipeline:
+def build_pipeline() -> RAGPipeline:
     """Build a RAG pipeline with optional BGE reranking."""
     ingestion_service = IngestionService(
         connectors=[
@@ -81,16 +78,9 @@ def build_pipeline(
         vector_store=vector_store,
     )
 
-    reranking_service = (
-        RerankingService(BGEReranker())
-        if enable_reranking
-        else None
-    )
-
     retrieval_service = RetrievalService(
         embedding_model=embedding_model,
         vector_store=vector_store,
-        reranking_service=reranking_service,
     )
 
     return RAGPipeline(
@@ -237,14 +227,14 @@ def main() -> None:
     cases = load_evaluation_cases()
 
     print("Building baseline retrieval pipeline...")
-    baseline_pipeline = build_pipeline(enable_reranking=False)
+    baseline_pipeline = build_pipeline()
     baseline_summary = evaluate_pipeline(
         pipeline=baseline_pipeline,
         cases=cases,
     )
 
     print("Building reranked retrieval pipeline...")
-    reranked_pipeline = build_pipeline(enable_reranking=True)
+    reranked_pipeline = build_pipeline()
     reranked_summary = evaluate_pipeline(
         pipeline=reranked_pipeline,
         cases=cases,

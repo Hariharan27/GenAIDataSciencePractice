@@ -7,9 +7,23 @@ from ai_project_health_monitor.evaluation.models.end_to_end import (
 from ai_project_health_monitor.evaluation.models.health import (
     HealthEvaluationCase,
 )
+from ai_project_health_monitor.evaluation.models.ragas import (
+    RagasEvaluationCase,
+)
 from ai_project_health_monitor.evaluation.models.risk import (
     RiskEvaluationCase,
 )
+
+
+def load_ragas_evaluation_cases(
+    path: Path,
+) -> list[RagasEvaluationCase]:
+    """Load RAGAS evaluation cases from a JSON file."""
+    raw_data = _load_json_array(path, "RAGAS evaluation")
+    return [
+        RagasEvaluationCase.model_validate(item)
+        for item in raw_data
+    ]
 
 
 def _load_json_array(path: Path, dataset_name: str) -> list[object]:

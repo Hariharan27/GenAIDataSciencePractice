@@ -1,3 +1,4 @@
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -9,7 +10,7 @@ from ai_project_health_monitor.core.config import get_settings
 settings = get_settings()
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI):
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     container = get_application_container()
     if settings.health_monitoring_enabled:
         container.health_monitor_scheduler.start(

@@ -10,7 +10,12 @@ class ProjectHealthMonitor:
 
     def __init__(
         self,
-        graph: CompiledStateGraph,
+        graph: CompiledStateGraph[
+            ProjectHealthState,
+            None,
+            ProjectHealthState,
+            ProjectHealthState,
+        ],
         health_trend_service: HealthTrendService,
     ) -> None:
         self._graph = graph

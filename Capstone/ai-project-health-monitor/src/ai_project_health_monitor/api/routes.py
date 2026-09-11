@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -152,10 +152,10 @@ def get_project_weekly_health_summary(
         )
 
     if start_date.tzinfo is None:
-        start_date = start_date.replace(tzinfo=timezone.utc)
+        start_date = start_date.replace(tzinfo=UTC)
 
     if end_date.tzinfo is None:
-        end_date = end_date.replace(tzinfo=timezone.utc)
+        end_date = end_date.replace(tzinfo=UTC)
 
     try:
         summary = container.weekly_health_summary_service.generate(

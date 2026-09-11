@@ -1,0 +1,29 @@
+[
+  {
+    "case_id": "RAGAS-001",
+    "project_id": "PROJ-001",
+    "question": "What risks are affecting the payment API integration?",
+    "answer": "The payment API integration is blocked because the external API team has not provided the required credentials.",
+    "contexts": [
+      "Payment API integration is blocked because the external API team has not provided the required credentials."
+    ]
+  },
+  {
+    "case_id": "RAGAS-002",
+    "project_id": "PROJ-001",
+    "question": "Are there any scope changes affecting the current release?",
+    "answer": "There is scope creep because the client requested an additional reporting dashboard that was not part of the original scope.",
+    "contexts": [
+      "The client requested an additional reporting dashboard that was not part of the original scope."
+    ]
+  },
+  {
+    "case_id": "RAGAS-003",
+    "project_id": "PROJ-001",
+    "question": "What is the current client sentiment about the project?",
+    "answer": "The client is concerned about the payment integration being blocked and its impact on the planned release date.",
+    "contexts": [
+      "The client is concerned that the payment integration is blocked and that this is affecting the planned release date."
+    ]
+  }
+]

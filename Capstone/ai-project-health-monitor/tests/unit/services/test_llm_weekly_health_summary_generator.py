@@ -1,11 +1,11 @@
 from unittest.mock import Mock
 
-from ai_project_health_monitor.domain.models.weekly_risk_evolution import (
-    WeeklyRiskEvolution,
-)
 from ai_project_health_monitor.domain.models.health_score import HealthStatus
 from ai_project_health_monitor.domain.models.weekly_health_analysis import (
     WeeklyHealthAnalysis,
+)
+from ai_project_health_monitor.domain.models.weekly_risk_evolution import (
+    WeeklyRiskEvolution,
 )
 from ai_project_health_monitor.services.llm_weekly_health_summary_generator import (
     LLMWeeklyHealthSummaryGenerator,

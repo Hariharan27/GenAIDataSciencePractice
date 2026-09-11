@@ -1,5 +1,7 @@
 from pydantic import BaseModel
 
+from ai_project_health_monitor.analysis.llm import LLMClient
+from ai_project_health_monitor.domain.models.health_score import HealthStatus
 from ai_project_health_monitor.domain.models.risk_signal import RiskSignal
 from ai_project_health_monitor.domain.models.weekly_health_analysis import (
     WeeklyHealthAnalysis,
@@ -7,18 +9,18 @@ from ai_project_health_monitor.domain.models.weekly_health_analysis import (
 from ai_project_health_monitor.domain.models.weekly_health_summary import (
     WeeklyHealthSummary,
 )
-from ai_project_health_monitor.services.weekly_health_summary_generator import (
-    WeeklyHealthSummaryGenerator,
-)
 from ai_project_health_monitor.domain.models.weekly_risk_evolution import (
     WeeklyRiskEvolution,
+)
+from ai_project_health_monitor.services.weekly_health_summary_generator import (
+    WeeklyHealthSummaryGenerator,
 )
 
 
 class LLMWeeklyHealthSummaryGenerator(WeeklyHealthSummaryGenerator):
     """Generates weekly health narratives using an LLM."""
 
-    def __init__(self, llm_client) -> None:
+    def __init__(self, llm_client: LLMClient) -> None:
         self._llm_client = llm_client
 
     def generate(
@@ -68,6 +70,8 @@ class LLMWeeklyHealthSummaryGenerator(WeeklyHealthSummaryGenerator):
         key_risks: list[RiskSignal],
         risk_evolution: list[WeeklyRiskEvolution],
     ) -> str:
+        del risk_evolution
+
         risks = "\n".join(
             (
                 f"- Type: {risk.risk_type.value}\n"
@@ -77,15 +81,6 @@ class LLMWeeklyHealthSummaryGenerator(WeeklyHealthSummaryGenerator):
                 f"  Rationale: {risk.rationale}"
             )
             for risk in key_risks
-        )
-        evolution = "\n".join(
-            (
-                f"- Type: {item.risk.risk_type.value}\n"
-                f"  Status: {item.status.value}\n"
-                f"  Severity: {item.risk.severity.value}\n"
-                f"  Evidence: {item.risk.evidence_quote}\n"
-            )
-            for item in risk_evolution
         )
 
         return f"""
@@ -151,8 +146,8 @@ class LLMWeeklyHealthSummaryResponse(BaseModel):
     starting_score: float
     ending_score: float
     score_change: float
-    starting_status: str
-    ending_status: str
+    starting_status: HealthStatus
+    ending_status: HealthStatus
     health_improved: bool
     health_deteriorated: bool
     summary: str

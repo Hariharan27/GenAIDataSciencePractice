@@ -1,4 +1,4 @@
-from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.background import BackgroundScheduler  # type: ignore[import-untyped]
 
 from ai_project_health_monitor.services.project_health_monitor import (
     ProjectHealthMonitor,

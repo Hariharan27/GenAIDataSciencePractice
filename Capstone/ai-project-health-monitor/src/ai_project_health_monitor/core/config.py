@@ -62,6 +62,13 @@ class Settings(BaseSettings):
 
     together_api_key: str | None = None
     openai_api_key: str | None = None
+    langfuse_enabled: bool = False
+    langfuse_public_key: str | None = None
+    langfuse_secret_key: str | None = None
+    langfuse_host: str = Field(
+        default="http://localhost:3000",
+        min_length=1,
+    )
 
     qdrant_url: str = Field(
         default="http://localhost:6333",

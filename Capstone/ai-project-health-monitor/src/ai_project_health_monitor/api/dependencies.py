@@ -97,6 +97,11 @@ from ai_project_health_monitor.services.weekly_health_summary_service import (
 from ai_project_health_monitor.services.weekly_risk_evolution_service import (
     WeeklyRiskEvolutionService,
 )
+from ai_project_health_monitor.observability.config import ObservabilityConfig
+from ai_project_health_monitor.observability.instrumented_llm import (
+    InstrumentedLLMClient,
+)
+from ai_project_health_monitor.observability.langfuse import LangfuseClient
 
 
 class ApplicationContainer:
@@ -127,7 +132,21 @@ class ApplicationContainer:
             retrieval_service=self.retrieval_service,
         )
 
-        self.llm_client = LLMClientFactory.create(settings)
+        llm_client = LLMClientFactory.create(settings)
+
+        observability = LangfuseClient(
+            ObservabilityConfig(
+                enabled=settings.langfuse_enabled,
+                public_key=settings.langfuse_public_key,
+                secret_key=settings.langfuse_secret_key,
+                host=settings.langfuse_host,
+            )
+        )
+
+        self.llm_client = InstrumentedLLMClient(
+            llm_client=llm_client,
+            observability=observability,
+        )
 
         # Historical health services
         self.health_trend_service = HealthTrendService(

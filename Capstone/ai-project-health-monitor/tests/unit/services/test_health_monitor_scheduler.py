@@ -99,3 +99,19 @@ def test_start_schedules_each_project() -> None:
     assert second_job.args == ("PROJ-002",)
 
     scheduler.shutdown()
+
+def test_scheduled_job_runs_project_analysis() -> None:
+    monitor = Mock()
+    scheduler = HealthMonitorScheduler(monitor=monitor)
+
+    scheduler.start(["PROJ-001"], interval_minutes=1)
+
+    job = scheduler._scheduler.get_job("health-monitor-PROJ-001")
+
+    assert job is not None
+
+    scheduler.run_once(*job.args)
+
+    monitor.analyze.assert_called_once_with("PROJ-001")
+
+    scheduler.shutdown()

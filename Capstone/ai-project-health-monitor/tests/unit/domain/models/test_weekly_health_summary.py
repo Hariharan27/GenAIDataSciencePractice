@@ -59,6 +59,7 @@ def test_weekly_health_summary_uses_persisted_health_history() -> None:
             health_score=82.0,
             health_status=HealthStatus.HEALTHY,
             calculated_at=datetime(2026, 9, 1),
+            evidence_fingerprint="fingerprint-2026-09-01",
         )
     )
 
@@ -67,6 +68,7 @@ def test_weekly_health_summary_uses_persisted_health_history() -> None:
             project_id="PROJ-001",
             health_score=72.0,
             health_status=HealthStatus.HEALTHY,
+            evidence_fingerprint="fingerprint-2026-09-04",
             calculated_at=datetime(2026, 9, 4),
         )
     )
@@ -76,6 +78,7 @@ def test_weekly_health_summary_uses_persisted_health_history() -> None:
             project_id="PROJ-001",
             health_score=61.0,
             health_status=HealthStatus.AT_RISK,
+            evidence_fingerprint="fingerprint-2026-09-07",
             calculated_at=datetime(2026, 9, 7),
         )
     )

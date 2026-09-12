@@ -20,6 +20,7 @@ def test_get_trend_returns_current_and_previous_scores() -> None:
             health_score=80.0,
             health_status=HealthStatus.HEALTHY,
             calculated_at=calculated_at,
+            evidence_fingerprint="fingerprint-2026-09-10-1",
         )
     )
     repository.save(
@@ -28,6 +29,7 @@ def test_get_trend_returns_current_and_previous_scores() -> None:
             health_score=65.0,
             health_status=HealthStatus.AT_RISK,
             calculated_at=calculated_at + timedelta(hours=1),
+            evidence_fingerprint="fingerprint-2026-09-10-2",
         )
     )
 
@@ -51,6 +53,7 @@ def test_get_trend_returns_no_change_when_only_one_snapshot_exists() -> None:
             health_score=75.0,
             health_status=HealthStatus.AT_RISK,
             calculated_at=datetime(2026, 9, 10, 10, 0, 0),
+            evidence_fingerprint="fingerprint-2026-09-10-single",
         )
     )
 

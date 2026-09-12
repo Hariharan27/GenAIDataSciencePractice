@@ -27,6 +27,7 @@ class PersistHealthSnapshotNode:
             health_score=state.health_score.score,
             health_status=state.health_score.status,
             risk_signals=state.primary_risks,
+            evidence_fingerprint=state.evidence_fingerprint,
             calculated_at=state.health_score.calculated_at,
         )
 

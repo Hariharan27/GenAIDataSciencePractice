@@ -37,6 +37,7 @@ def test_persist_health_snapshot_node_saves_health_snapshot() -> None:
     state = ProjectHealthState(
         project_id="PROJ-001",
         query="project health assessment",
+        evidence_fingerprint="test-fingerprint",
         primary_risks=[risk_signal],
         health_score=health_score,
     )
@@ -52,4 +53,5 @@ def test_persist_health_snapshot_node_saves_health_snapshot() -> None:
     assert snapshot.health_score == 60.0
     assert snapshot.health_status == HealthStatus.AT_RISK
     assert snapshot.risk_signals == [risk_signal]
+    assert snapshot.evidence_fingerprint == "test-fingerprint"
     assert snapshot.calculated_at == calculated_at

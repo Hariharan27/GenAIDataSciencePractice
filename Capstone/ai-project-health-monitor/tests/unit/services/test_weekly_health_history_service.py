@@ -21,6 +21,7 @@ def test_get_history_returns_snapshots_within_date_range() -> None:
             health_score=80.0,
             health_status=HealthStatus.HEALTHY,
             calculated_at=datetime(2026, 9, 1),
+            evidence_fingerprint="fingerprint-2026-09-01",
         )
     )
     repository.save(
@@ -28,6 +29,7 @@ def test_get_history_returns_snapshots_within_date_range() -> None:
             project_id="PROJ-001",
             health_score=70.0,
             health_status=HealthStatus.AT_RISK,
+            evidence_fingerprint="fingerprint-2026-09-04",
             calculated_at=datetime(2026, 9, 4),
         )
     )
@@ -36,6 +38,7 @@ def test_get_history_returns_snapshots_within_date_range() -> None:
             project_id="PROJ-001",
             health_score=50.0,
             health_status=HealthStatus.CRITICAL,
+            evidence_fingerprint="fingerprint-2026-09-10",
             calculated_at=datetime(2026, 9, 10),
         )
     )
@@ -61,6 +64,7 @@ def test_get_history_returns_empty_history_when_no_snapshots_match() -> None:
             project_id="PROJ-001",
             health_score=80.0,
             health_status=HealthStatus.HEALTHY,
+            evidence_fingerprint="fingerprint-2026-09-10",
             calculated_at=datetime(2026, 9, 10),
         )
     )

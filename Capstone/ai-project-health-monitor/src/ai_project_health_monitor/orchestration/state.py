@@ -6,7 +6,11 @@ from ai_project_health_monitor.domain.models.health_score import HealthScore
 from ai_project_health_monitor.domain.models.project_health_summary import ProjectHealthSummary
 from ai_project_health_monitor.domain.models.risk_group import RiskGroup
 from ai_project_health_monitor.domain.models.risk_signal import RiskSignal
+from ai_project_health_monitor.domain.models.risk_change import RiskChange
 from ai_project_health_monitor.rag.models.retrieval import RetrievalResult
+from ai_project_health_monitor.persistence.health_snapshot import (
+    ProjectHealthSnapshot,
+)
 
 
 class ProjectHealthState(BaseModel):
@@ -17,8 +21,12 @@ class ProjectHealthState(BaseModel):
 
     retrieval_results: list[RetrievalResult] = Field(default_factory=list)
     evidence: list[Evidence] = Field(default_factory=list)
+    evidence_fingerprint: str | None = None
+    previous_health_snapshot: ProjectHealthSnapshot | None = None
+    evidence_changed: bool = False
 
     risk_signals: list[RiskSignal] = Field(default_factory=list)
+    risk_changes: list[RiskChange] = Field(default_factory=list)
     risk_groups: list[RiskGroup] = Field(default_factory=list)
     primary_risks: list[RiskSignal] = Field(default_factory=list)
 

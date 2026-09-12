@@ -89,6 +89,10 @@ class Settings(BaseSettings):
         default="data/synthetic/documents",
         min_length=1,
     )
+    postgres_dsn: str = Field(
+        default="postgresql://postgres:postgres@localhost:5434/ai_project_health_monitor",
+        min_length=1,
+    )
 
 
 @lru_cache

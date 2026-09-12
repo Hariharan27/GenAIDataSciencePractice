@@ -13,4 +13,6 @@ class ProjectHealthSnapshot(BaseModel):
     health_score: float = Field(ge=0.0, le=100.0)
     health_status: HealthStatus
     risk_signals: list[RiskSignal] = Field(default_factory=list)
+    evidence_fingerprint: str = Field(min_length=1)
     calculated_at: datetime
+    

@@ -57,11 +57,16 @@ from ai_project_health_monitor.notifications.logging_health_summary_delivery imp
 from ai_project_health_monitor.notifications.logging_health_summary_notifier import (
     LoggingHealthSummaryNotifier,
 )
+from ai_project_health_monitor.observability.config import ObservabilityConfig
+from ai_project_health_monitor.observability.instrumented_llm import (
+    InstrumentedLLMClient,
+)
+from ai_project_health_monitor.observability.langfuse import LangfuseClient
 from ai_project_health_monitor.orchestration.graph import (
     build_project_health_graph,
 )
-from ai_project_health_monitor.persistence.repositories.in_memory_health_snapshot import (
-    InMemoryHealthSnapshotRepository,
+from ai_project_health_monitor.persistence.repositories.postgres_health_snapshot import (
+    PostgresHealthSnapshotRepository,
 )
 from ai_project_health_monitor.rag.chunking import FixedSizeChunker
 from ai_project_health_monitor.rag.embeddings.bge import BGEEmbeddingModel
@@ -97,11 +102,12 @@ from ai_project_health_monitor.services.weekly_health_summary_service import (
 from ai_project_health_monitor.services.weekly_risk_evolution_service import (
     WeeklyRiskEvolutionService,
 )
-from ai_project_health_monitor.observability.config import ObservabilityConfig
-from ai_project_health_monitor.observability.instrumented_llm import (
-    InstrumentedLLMClient,
+from ai_project_health_monitor.analysis.risk_change_detector import (
+    RiskChangeDetector,
 )
-from ai_project_health_monitor.observability.langfuse import LangfuseClient
+from ai_project_health_monitor.analysis.llm_risk_change_investigator import (
+    LLMRiskChangeInvestigator,
+)
 
 
 class ApplicationContainer:
@@ -126,7 +132,9 @@ class ApplicationContainer:
             vector_store=self.vector_store,
         )
 
-        self.health_snapshot_repository = InMemoryHealthSnapshotRepository()
+        self.health_snapshot_repository = PostgresHealthSnapshotRepository(
+            dsn=settings.postgres_dsn,
+        )
 
         self.project_health_evidence_retriever = ProjectHealthEvidenceRetriever(
             retrieval_service=self.retrieval_service,
@@ -174,12 +182,15 @@ class ApplicationContainer:
         )
 
         # Risk analysis
-        risk_analyzer = LLMRiskAnalyzer(
+        self.risk_analyzer = LLMRiskAnalyzer(
             llm_client=self.llm_client,
             grounding_validator=DeterministicRiskGroundingValidator(),
         )
-
         risk_consolidator = RiskConsolidator()
+        risk_change_detector = RiskChangeDetector()
+        risk_change_investigator = LLMRiskChangeInvestigator(
+            llm_client=self.llm_client,
+        )
         health_scorer = DeterministicHealthScorer()
 
         summary_generator = LLMHealthSummaryGenerator(
@@ -202,10 +213,16 @@ class ApplicationContainer:
             summary_delivery,
         )
 
+        self.ingestion_service = IngestionService(
+            connectors=self._build_connectors(settings),
+        )
+
         self.graph = build_project_health_graph(
             evidence_retriever=self.project_health_evidence_retriever,
-            risk_analyzer=risk_analyzer,
+            risk_analyzer=self.risk_analyzer,
             risk_consolidator=risk_consolidator,
+            risk_change_detector=risk_change_detector,
+            risk_change_investigator=risk_change_investigator,
             health_scorer=health_scorer,
             summary_generator=summary_generator,
             alert_evaluator=alert_evaluator,
@@ -215,6 +232,7 @@ class ApplicationContainer:
             escalation_notifier=escalation_notifier,
             summary_notifier=summary_notifier,
             health_snapshot_repository=self.health_snapshot_repository,
+            ingestion_service=self.ingestion_service,
         )
 
         self.project_health_monitor = ProjectHealthMonitor(
@@ -230,10 +248,6 @@ class ApplicationContainer:
             chunker=FixedSizeChunker(),
             embedding_model=self.embedding_model,
             vector_store=self.vector_store,
-        )
-
-        self.ingestion_service = IngestionService(
-            connectors=self._build_connectors(settings),
         )
 
 

@@ -18,6 +18,7 @@ def create_snapshot(
         project_id=project_id,
         health_score=score,
         health_status=HealthStatus.HEALTHY,
+        evidence_fingerprint="dummy_fingerprint",
         calculated_at=calculated_at,
     )
 
